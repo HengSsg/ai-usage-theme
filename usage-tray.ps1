@@ -21,6 +21,28 @@ public class TBW {
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
  public static readonly IntPtr TOPMOST = new IntPtr(-1);
 }
+// 다른 창이 포그라운드가 되면(작업표시줄 클릭 포함) Windows 가 그 창을 topmost 최상단으로 올려 위젯을 덮는다.
+// 2초 폴링이 돌 때까지 가려져 "사라졌다 다시 생기는" 것으로 보인다 → 포그라운드 변경 이벤트에 즉시 반응해 되올린다.
+// WINEVENT_OUTOFCONTEXT 콜백은 훅을 건 스레드의 메시지 루프에서 실행되므로 UI 스레드에서 Start 해야 한다.
+public class TopGuard {
+ delegate void Proc(IntPtr hHook,uint ev,IntPtr hwnd,int idObj,int idChild,uint thread,uint time);
+ [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint mn,uint mx,IntPtr hmod,Proc cb,uint pid,uint tid,uint flags);
+ [DllImport("user32.dll")] static extern bool UnhookWinEvent(IntPtr h);
+ [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h,IntPtr a,int x,int y,int w,int t,uint f);
+ static Proc _cb;                                   // GC 가 수거하면 콜백 시점에 죽는다 — 반드시 참조 유지
+ static IntPtr _hook = IntPtr.Zero, _target = IntPtr.Zero;
+ public static void Start(IntPtr target){
+   _target = target;
+   if (_hook != IntPtr.Zero) return;
+   _cb = new Proc(OnEvent);
+   _hook = SetWinEventHook(0x0003,0x0003,IntPtr.Zero,_cb,0,0,0);          // EVENT_SYSTEM_FOREGROUND
+ }
+ public static void Stop(){ if (_hook != IntPtr.Zero) { UnhookWinEvent(_hook); _hook = IntPtr.Zero; } }
+ static void OnEvent(IntPtr h,uint ev,IntPtr hwnd,int o,int c,uint th,uint t){
+   if (_target == IntPtr.Zero) return;
+   SetWindowPos(_target,new IntPtr(-1),0,0,0,0,0x0013);                    // TOPMOST | NOSIZE|NOMOVE|NOACTIVATE
+ }
+}
 '@
 Add-Type -AssemblyName System.Net.Http
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -647,7 +669,7 @@ function Request-UpdateCheck { $script:updInteractive = $true; Start-UpdateCheck
 $updItem.Add_Click({ Request-UpdateCheck }.GetNewClosure())
 [void]$menu.Items.Add($updItem)
 [void]$menu.Items.Add((New-Object Windows.Forms.ToolStripSeparator))   # 업데이트 바로 아래 붙어 오클릭하기 쉬웠다
-[void]$menu.Items.Add('종료', $null, { $form.Close() }.GetNewClosure())
+[void]$menu.Items.Add('종료', $null, { [TopGuard]::Stop(); $form.Close() }.GetNewClosure())
 $form.ContextMenuStrip = $menu; $pic.ContextMenuStrip = $menu
 
 # ── 단일 틱: 비동기 요청 회수 → 다음 요청 발사 → 배치. 여기서 절대 블로킹하지 않는다 ──
@@ -696,6 +718,7 @@ $form.Add_Shown({
         # 업데이트 자동 점검은 기동 20초 뒤 첫 회, 이후 24시간마다 (표시만 — 설치는 메뉴에서)
         $script:lastUpdCheckUtc = (Get-Date).ToUniversalTime().AddHours(-$UpdateCheckHours).AddSeconds(20)
         Render-Widget; Set-Placement; Sync-Anim
+        [TopGuard]::Start($form.Handle)      # 포그라운드 전환 시 즉시 최상단 복귀
         $tick.Start()
     } catch { Write-ErrLog 'shown' $_ }
 }.GetNewClosure())
