@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    a { color: #b45309; } a:hover { color: #92400e; }
+  </style>
+</helmet>
+<div style="width: 760px; height: 340px; background: #f4f3ef; padding: 20px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-family: 'Segoe UI', system-ui, sans-serif">
+  <div style="display: flex; align-items: baseline; gap: 12px">
+    <div style="font-size: 18px; font-weight: 700; color: #1a1a1a">자동차</div>
+    <div style="font-size: 13px; color: #6b6b6b">승용차 = 5시간 · 화물차 = 7일. 결승 깃발까지 달린다. 차선 앞에 남은시간</div>
+  </div>
+  <div style="height: 48px; background: #202020; border-radius: 4px; display: flex; align-items: center; padding-left: 12px; box-sizing: border-box">
+    <svg width="260" height="48" viewBox="0 0 260 48" style="display:block; overflow: visible">
+<defs><pattern id="chk1" width="8" height="8" patternUnits="userSpaceOnUse">
+  <rect width="4" height="4" fill="#e8e8e8"></rect><rect x="4" y="4" width="4" height="4" fill="#e8e8e8"></rect>
+</pattern></defs>
+<rect x="0" y="2" width="254" height="44" rx="4" fill="#2c2c2c"></rect>
+<line x1="42" y1="24" x2="242" y2="24" stroke="#5a5a5a" style="stroke-width: 1.5; stroke-dasharray: 7 6"></line>
+<rect x="244" y="4" width="8" height="40" fill="url(#chk1)"></rect>
+<text x="4" y="17" style="font: 700 9px 'Segoe UI', system-ui, sans-serif; fill: #8a8a8a">2:21/5h</text>
+<text x="4" y="39" style="font: 700 9px 'Segoe UI', system-ui, sans-serif; fill: #8a8a8a">1/7d</text>
+<g transform="translate({{carX}} 0)">
+  <rect x="6" y="4" width="13" height="6" rx="2" fill="{{c5}}"></rect>
+  <rect x="0" y="9" width="26" height="8" rx="2" fill="{{c5}}"></rect>
+  <rect x="8" y="5" width="9" height="4" rx="1" fill="#1a1a1a" opacity="0.55"></rect>
+  <rect x="24" y="11" width="2" height="3" fill="#fff8c0"></rect>
+  <circle cx="6" cy="18" r="2.8" fill="#111"></circle><circle cx="6" cy="18" r="1.1" fill="#888"></circle>
+  <circle cx="20" cy="18" r="2.8" fill="#111"></circle><circle cx="20" cy="18" r="1.1" fill="#888"></circle>
+</g>
+<g transform="translate({{truckX}} 0)">
+  <rect x="0" y="27" width="22" height="13" rx="1.5" fill="{{c7}}"></rect>
+  <rect x="23" y="31" width="11" height="9" rx="2" fill="{{c7}}"></rect>
+  <rect x="27" y="32.5" width="5.5" height="4" rx="1" fill="#1a1a1a" opacity="0.55"></rect>
+  <rect x="33" y="35" width="1.5" height="3" fill="#fff8c0"></rect>
+  <circle cx="5" cy="41" r="2.8" fill="#111"></circle><circle cx="5" cy="41" r="1.1" fill="#888"></circle>
+  <circle cx="14" cy="41" r="2.8" fill="#111"></circle><circle cx="14" cy="41" r="1.1" fill="#888"></circle>
+  <circle cx="29" cy="41" r="2.8" fill="#111"></circle><circle cx="29" cy="41" r="1.1" fill="#888"></circle>
+</g>
+</svg>
+  </div>
+  <div style="font-size: 11px; color: #8a8a8a">↑ 실제 크기(작업표시줄 48px) &nbsp;·&nbsp; ↓ 3배 확대 &nbsp;·&nbsp; 라벨 = 남은시간/창 (5h: H:MM/5h · 7d: N/7d, 24시간 미만 Nh/7d)</div>
+  <div style="background: #202020; border-radius: 4px; padding: 8px 14px; align-self: flex-start">
+    <svg width="780" height="144" viewBox="0 0 260 48" style="display:block; overflow: visible">
+<defs><pattern id="chk3" width="8" height="8" patternUnits="userSpaceOnUse">
+  <rect width="4" height="4" fill="#e8e8e8"></rect><rect x="4" y="4" width="4" height="4" fill="#e8e8e8"></rect>
+</pattern></defs>
+<rect x="0" y="2" width="254" height="44" rx="4" fill="#2c2c2c"></rect>
+<line x1="42" y1="24" x2="242" y2="24" stroke="#5a5a5a" style="stroke-width: 1.5; stroke-dasharray: 7 6"></line>
+<rect x="244" y="4" width="8" height="40" fill="url(#chk3)"></rect>
+<text x="4" y="17" style="font: 700 9px 'Segoe UI', system-ui, sans-serif; fill: #8a8a8a">2:21/5h</text>
+<text x="4" y="39" style="font: 700 9px 'Segoe UI', system-ui, sans-serif; fill: #8a8a8a">1/7d</text>
+<g transform="translate({{carX}} 0)">
+  <rect x="6" y="4" width="13" height="6" rx="2" fill="{{c5}}"></rect>
+  <rect x="0" y="9" width="26" height="8" rx="2" fill="{{c5}}"></rect>
+  <rect x="8" y="5" width="9" height="4" rx="1" fill="#1a1a1a" opacity="0.55"></rect>
+  <rect x="24" y="11" width="2" height="3" fill="#fff8c0"></rect>
+  <circle cx="6" cy="18" r="2.8" fill="#111"></circle><circle cx="6" cy="18" r="1.1" fill="#888"></circle>
+  <circle cx="20" cy="18" r="2.8" fill="#111"></circle><circle cx="20" cy="18" r="1.1" fill="#888"></circle>
+</g>
+<g transform="translate({{truckX}} 0)">
+  <rect x="0" y="27" width="22" height="13" rx="1.5" fill="{{c7}}"></rect>
+  <rect x="23" y="31" width="11" height="9" rx="2" fill="{{c7}}"></rect>
+  <rect x="27" y="32.5" width="5.5" height="4" rx="1" fill="#1a1a1a" opacity="0.55"></rect>
+  <rect x="33" y="35" width="1.5" height="3" fill="#fff8c0"></rect>
+  <circle cx="5" cy="41" r="2.8" fill="#111"></circle><circle cx="5" cy="41" r="1.1" fill="#888"></circle>
+  <circle cx="14" cy="41" r="2.8" fill="#111"></circle><circle cx="14" cy="41" r="1.1" fill="#888"></circle>
+  <circle cx="29" cy="41" r="2.8" fill="#111"></circle><circle cx="29" cy="41" r="1.1" fill="#888"></circle>
+</g>
+</svg>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"s5h": {"editor": "range", "default": 38, "min": 0, "max": 100, "step": 1, "unit": "%", "section": "사용률"}, "s7d": {"editor": "range", "default": 72, "min": 0, "max": 100, "step": 1, "unit": "%", "section": "사용률"}, "$preview": {"width": 760, "height": 340}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
+    const s5 = clamp(this.props.s5h ?? 38), s7 = clamp(this.props.s7d ?? 72);
+    const col = p => p < 60 ? '#50e678' : p < 85 ? '#ffd700' : '#ff6347';
+    return {
+      s5, s7, c5: col(s5), c7: col(s7), cd: col(Math.max(s5, s7)),
+      b5: 108 * s5 / 100, b7: 108 * s7 / 100,
+      carX: 44 + 170 * s5 / 100, truckX: 44 + 162 * s7 / 100,
+      f5: 39 * (100 - s5) / 100, f7: 39 * (100 - s7) / 100,
+      d5: 87.96 * s5 / 100, d7: 87.96 * s7 / 100
+    };
+  }
+}
+</script>
+</body>
+</html>

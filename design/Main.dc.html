@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    a { color: #b45309; } a:hover { color: #92400e; }
+  </style>
+</helmet>
+<div style="width: 760px; height: 340px; background: #f4f3ef; padding: 20px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; font-family: 'Segoe UI', system-ui, sans-serif">
+  <div style="display: flex; align-items: baseline; gap: 12px">
+    <div style="font-size: 18px; font-weight: 700; color: #1a1a1a">막대 게이지 (기본)</div>
+    <div style="font-size: 13px; color: #6b6b6b">남은시간/창 라벨(오른쪽 정렬) + 진행 막대 + 숫자</div>
+  </div>
+  <div style="height: 48px; background: #202020; border-radius: 4px; display: flex; align-items: center; padding-left: 12px; box-sizing: border-box">
+    <svg width="215" height="48" viewBox="0 0 215 48" style="display:block; overflow: visible">
+<text x="56" y="20" style="font: 700 11px 'Segoe UI', system-ui, sans-serif; fill: #a0a0a0; text-anchor: end">2:21/5h</text>
+<rect x="62" y="11" width="108" height="9" rx="2" fill="#3a3a3a"></rect>
+<rect x="62" y="11" width="{{b5}}" height="9" rx="2" fill="{{c5}}"></rect>
+<text x="178" y="20" style="font: 700 11px 'Segoe UI', system-ui, sans-serif; fill: {{c5}}">{{s5}}%</text>
+<text x="56" y="37" style="font: 700 11px 'Segoe UI', system-ui, sans-serif; fill: #a0a0a0; text-anchor: end">1/7d</text>
+<rect x="62" y="28" width="108" height="9" rx="2" fill="#3a3a3a"></rect>
+<rect x="62" y="28" width="{{b7}}" height="9" rx="2" fill="{{c7}}"></rect>
+<text x="178" y="37" style="font: 700 11px 'Segoe UI', system-ui, sans-serif; fill: {{c7}}">{{s7}}%</text>
+</svg>
+  </div>
+  <div style="font-size: 11px; color: #8a8a8a">↑ 실제 크기(작업표시줄 48px) &nbsp;·&nbsp; ↓ 3배 확대 &nbsp;·&nbsp; 라벨 = 남은시간/창 (5h: H:MM/5h · 7d: N/7d, 24시간 미만 Nh/7d)</div>
+  <div style="background: #202020; border-radius: 4px; padding: 8px 14px; align-self: flex-start">
+    <svg width="645" height="144" viewBox="0 0 215 48" style="display:block; overflow: visible">
+<text x="56" y="20" style="font: 700 11px 'Segoe UI', system-ui, sans-serif; fill: #a0a0a0; text-anchor: end">2:21/5h</text>
+<rect x="62" y="11" width="108" height="9" rx="2" fill="#3a3a3a"></rect>
+<rect x="62" y="11" width="{{b5}}" height="9" rx="2" fill="{{c5}}"></rect>
+<text x="178" y="20" style="font: 700 11px 'Segoe UI', system-ui, sans-serif; fill: {{c5}}">{{s5}}%</text>
+<text x="56" y="37" style="font: 700 11px 'Segoe UI', system-ui, sans-serif; fill: #a0a0a0; text-anchor: end">1/7d</text>
+<rect x="62" y="28" width="108" height="9" rx="2" fill="#3a3a3a"></rect>
+<rect x="62" y="28" width="{{b7}}" height="9" rx="2" fill="{{c7}}"></rect>
+<text x="178" y="37" style="font: 700 11px 'Segoe UI', system-ui, sans-serif; fill: {{c7}}">{{s7}}%</text>
+</svg>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"s5h": {"editor": "range", "default": 38, "min": 0, "max": 100, "step": 1, "unit": "%", "section": "사용률"}, "s7d": {"editor": "range", "default": 72, "min": 0, "max": 100, "step": 1, "unit": "%", "section": "사용률"}, "$preview": {"width": 760, "height": 340}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
+    const s5 = clamp(this.props.s5h ?? 38), s7 = clamp(this.props.s7d ?? 72);
+    const col = p => p < 60 ? '#50e678' : p < 85 ? '#ffd700' : '#ff6347';
+    return {
+      s5, s7, c5: col(s5), c7: col(s7), cd: col(Math.max(s5, s7)),
+      b5: 108 * s5 / 100, b7: 108 * s7 / 100,
+      carX: 44 + 170 * s5 / 100, truckX: 44 + 162 * s7 / 100,
+      f5: 39 * (100 - s5) / 100, f7: 39 * (100 - s7) / 100,
+      d5: 87.96 * s5 / 100, d7: 87.96 * s7 / 100
+    };
+  }
+}
+</script>
+</body>
+</html>
