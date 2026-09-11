@@ -417,6 +417,15 @@ function Get-LocalSha {
     if (Test-Path $VersionFile) { return (Get-Content $VersionFile -Raw).Trim() }
     return ''
 }
+# 원격 커밋을 이미 갖고 있나? (git clone 전용, 로컬 전용 연산)
+# ⚠️ `rev-parse HEAD` 와 원격 sha 를 단순 비교하면 **로컬이 앞서 있을 때**(미push 커밋) 항상
+# "새 버전 있음" 으로 오판한다. 원격 커밋이 HEAD 의 조상이면 이미 포함한 것 (실측 2026-09-11).
+# 그 커밋 객체가 로컬에 없으면 오류로 빠지는데, 그때는 실제로 안 갖고 있는 것이니 $false 가 맞다.
+function Test-HaveCommit([string]$sha) {
+    if (-not $sha) { return $true }
+    git -C $PSScriptRoot merge-base --is-ancestor $sha HEAD 2>$null | Out-Null
+    return ($LASTEXITCODE -eq 0)
+}
 function Start-UpdateCheck {
     if ($script:updTask) { return }
     $api = $RepoUrl -replace '^https://github\.com/', 'https://api.github.com/repos/'
@@ -439,7 +448,11 @@ function Invoke-Update {
         $p = Start-Process git -ArgumentList '-C', $PSScriptRoot, 'pull', '--ff-only', 'origin', 'main' `
                  -NoNewWindow -PassThru -RedirectStandardOutput $o -RedirectStandardError $e
         try { Wait-Pumping { $p.HasExited } 90 } catch { try { $p.Kill() } catch {}; throw 'git pull 시간 초과' }
-        if ($p.ExitCode -ne 0) { throw ("git pull 실패:`n" + ((Get-Content $e -Raw -EA SilentlyContinue) + (Get-Content $o -Raw -EA SilentlyContinue))) }
+        # ⚠️ Start-Process -PassThru 로 받은 객체의 ExitCode 는 **빈 값**이라 `-ne 0` 이 항상 참이 된다
+        # (실측 2026-09-11: git 이 "Already up to date" 로 성공했는데 실패로 보고). 결과 상태로 판정한다.
+        if (-not (Test-HaveCommit $script:remoteSha)) {
+            throw ("git pull 실패:`n" + ((Get-Content $e -Raw -EA SilentlyContinue) + (Get-Content $o -Raw -EA SilentlyContinue)))
+        }
         Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
         return
     }
@@ -487,13 +500,19 @@ function Complete-UpdateCheck {
         return
     }
     $script:remoteSha = [string]$r.Json.sha
-    $local = Get-LocalSha
-    $script:updateAvail = ($local -and $script:remoteSha -and $local -ne $script:remoteSha)
+    if (Test-GitClone) {
+        $known = $true
+        $script:updateAvail = -not (Test-HaveCommit $script:remoteSha)
+    } else {
+        $local = Get-LocalSha                       # zip 설치본: version.txt 비교밖에 없다
+        $known = [bool]$local
+        $script:updateAvail = ($known -and $script:remoteSha -and $local -ne $script:remoteSha)
+    }
     if ($updItem) { $updItem.Text = if ($script:updateAvail) { '업데이트 설치 — 새 버전 있음' } else { '업데이트 확인' } }
     Render-Widget
     if (-not $interactive) { return }
     $q = if ($script:updateAvail) { "새 버전이 있습니다. 지금 업데이트할까요?`n(위젯이 자동으로 재시작됩니다)" }
-         elseif (-not $local)     { "현재 버전을 확인할 수 없습니다.`n최신 버전으로 다시 받을까요? 개인 설정은 유지됩니다." }
+         elseif (-not $known)     { "현재 버전을 확인할 수 없습니다.`n최신 버전으로 다시 받을까요? 개인 설정은 유지됩니다." }
          else { $null }
     if (-not $q) { Show-Msg '최신 버전입니다.' | Out-Null; return }
     if ((Show-Msg $q '업데이트' 'YesNo' 'Question') -ne 'Yes') { return }
