@@ -85,6 +85,7 @@ $CacheFile  = Join-Path $PSScriptRoot 'last.json'   # 마지막 응답 — 재�
 $UsageUrl   = 'https://api.anthropic.com/api/oauth/usage'
 $PollSec    = 120   # API 폴링. 5시간 창은 분 단위로 천천히 움직인다 — 더 짧게 하면 429 위험
 $PlaceSec   = 2     # 위치·z순서 재확인 (explorer 재시작·해상도 변경 대응)
+$AnimIdleX  = 4     # 마우스가 위젯 위에 없을 때 애니메이션을 이 배수만큼 느리게 (CPU 절약)
 $RepoUrl    = 'https://github.com/HengSsg/ai-usage-theme'   # 업데이트 원본
 $VersionFile = Join-Path $PSScriptRoot 'version.txt'        # zip 설치본의 현재 커밋 sha (git clone 이면 .git 이 정본)
 $UpdateCheckHours = 24
@@ -728,13 +729,24 @@ $tick.Add_Tick({ On-Tick }.GetNewClosure())
 $anim = New-Object Windows.Forms.Timer
 # ⚠️ 증가는 반드시 파일 스코프 함수에서 — 핸들러 스크립트블록(GetNewClosure) 안에서 `$script:frame++` 하면
 # 클로저 모듈의 script 스코프에 써져 파일 쪽 값은 0 에 머문다(= 매 프레임 같은 그림, 애니메이션이 멈춘 것처럼 보임).
-function Tick-Anim { $script:frame++; Render-Widget $false }
+# 호버 부스트 — 마우스가 위젯 위에 있을 때만 선언된 프레임 간격으로 돌리고, 아니면 $AnimIdleX 배 느리게.
+# 보는 순간엔 부드럽고 평소엔 CPU 를 덜 쓴다. 이벤트(MouseEnter/Leave) 대신 커서 위치를 보는 이유:
+# 위젯이 다른 창에 덮이면 MouseLeave 가 안 오는 경우가 있고, 폴링은 이 틱에 얹으면 공짜다.
+function Tick-Anim {
+    $script:frame++
+    Render-Widget $false
+    $ms = [int]$Themes[$script:themeId].Anim
+    if ($ms -le 0) { return }
+    $want = if ($form.Bounds.Contains([Windows.Forms.Cursor]::Position)) { $ms } else { $ms * $AnimIdleX }
+    if ($anim.Interval -ne $want) { $anim.Interval = $want }
+}
 $anim.Add_Tick({ try { Tick-Anim } catch { Write-ErrLog 'anim' $_ } }.GetNewClosure())
 function Sync-Anim {
     try {
         $ms = [int]$Themes[$script:themeId].Anim
         if ($ms -gt 0 -and $form.Visible) {
-            if ($anim.Interval -ne $ms) { $anim.Interval = $ms }
+            $want = $ms * $AnimIdleX            # 기동 직후는 느린 쪽에서 시작 — 호버하면 틱이 올린다
+            if ($anim.Interval -ne $want -and -not $anim.Enabled) { $anim.Interval = $want }
             if (-not $anim.Enabled) { $anim.Start() }
         } elseif ($anim.Enabled) { $anim.Stop() }
     } catch { Write-ErrLog 'sync-anim' $_ }
