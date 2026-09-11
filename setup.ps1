@@ -37,6 +37,15 @@ $s.WindowStyle      = 7
 $s.Description      = 'Claude Code 사용량 작업표시줄 위젯'
 $s.Save()
 
+# zip 설치본은 현재 커밋을 모른다 — 설치 시점의 GitHub main sha 를 기록해 두면 위젯의 업데이트 점검이 정확해진다 (실패해도 무시)
+if (-not (Test-Path (Join-Path $PSScriptRoot '.git'))) {
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $sha = (Invoke-RestMethod 'https://api.github.com/repos/HengSsg/ai-usage-theme/commits/main' -TimeoutSec 10 -Headers @{ 'User-Agent' = 'cc-usage-tray' }).sha
+        if ($sha) { Set-Content (Join-Path $PSScriptRoot 'version.txt') $sha -Encoding ASCII }
+    } catch {}
+}
+
 Stop-Widget; Start-Sleep -Milliseconds 500
 Start-Process powershell -ArgumentList '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', $Widget
 Write-Host "설치 완료 — 작업표시줄에 위젯이 뜹니다(로그인 시 자동 시작). 우클릭 → 테마 / 위치 / 종료."

@@ -10,6 +10,39 @@ PowerShell 단일 스크립트 — 설치할 것 없음.
    4/7d ██████████████░░ 72%      ← 주간 창: 리셋까지 4일, 72% 사용
 ```
 
+## AI 에게 설치 맡기기 (가장 쉬움)
+
+Claude Code(또는 셸을 쓸 수 있는 다른 AI 코딩 도구)에 아래를 그대로 붙여 넣으세요.
+
+```
+https://github.com/HengSsg/ai-usage-theme 의 README 를 읽고 그 절차대로 Claude Code 사용량 위젯을 설치해줘.
+%USERPROFILE%\tools\cc-usage-tray 에 git clone 한 뒤 setup.ps1 을 실행하고, 끝나면 작업표시줄에 위젯이 보이는지 확인해서 알려줘.
+"로그인 정보가 없습니다" 가 나오면 내가 claude 로그인을 해야 한다고 알려주고 기다려.
+```
+
+업데이트도 한 줄이면 됩니다:
+
+```
+%USERPROFILE%\tools\cc-usage-tray 의 Claude Code 사용량 위젯을 최신으로 업데이트해줘 (git pull 후 setup.ps1 재실행).
+```
+
+<details>
+<summary>AI 에이전트용 실행 절차 (사람은 안 읽어도 됨)</summary>
+
+```
+# 설치 — 순서대로 실행하고 마지막 출력에 "설치 완료" 가 있는지 확인
+git clone https://github.com/HengSsg/ai-usage-theme.git "%USERPROFILE%\tools\cc-usage-tray"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usage-tray\setup.ps1"
+
+# 출력이 "Claude Code 로그인 정보가 없습니다" 면: 사용자에게 `claude` 실행 후 구독 계정 로그인을 요청하고, 로그인 뒤 setup.ps1 만 다시 실행
+# 이미 폴더가 있으면(재설치·업데이트): git -C "%USERPROFILE%\tools\cc-usage-tray" pull --ff-only  →  setup.ps1 재실행
+# 확인: 작업표시줄 왼쪽(아이콘 가운데 정렬) 또는 트레이 앞(아이콘 왼쪽 정렬)에 "H:MM/5h … N/7d …" 위젯. 프로세스: powershell.exe (usage-tray.ps1)
+# 제거: powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usage-tray\setup.ps1" -Uninstall
+```
+
+전제: Windows 11 · Claude Code 구독(Pro/Max/Team) OAuth 로그인 · git. 그 외 설치 없음. 네트워크 접근은 `api.anthropic.com`(사용량) 과 `github.com`(설치/업데이트) 둘뿐.
+</details>
+
 ## 요구사항
 
 - Windows 11 (작업표시줄 48px 기준, 배율 100%에서 확인됨) · PowerShell 5.1 (기본 내장)
@@ -37,6 +70,7 @@ PowerShell 단일 스크립트 — 설치할 것 없음.
 | 테마 | 막대 게이지(기본) · 자동차(승용차=5h, 화물차=7d) · 배터리(잔량=남은 한도) |
 | 위치 | 자동(아이콘 가운데 정렬이면 왼쪽, 왼쪽 정렬이면 트레이 앞) · 왼쪽 · 오른쪽 |
 | 지금 새로고침 | 즉시 재조회 |
+| 업데이트 확인 | GitHub 최신 버전 확인 → 있으면 설치 후 자동 재시작 (아래 「업데이트」) |
 | 종료 | 위젯 종료 (다음 로그인 때 다시 뜸 — 완전 제거는 uninstall.cmd) |
 
 마우스를 올리면 리셋까지 남은 시간이 툴팁으로 나옵니다.
@@ -44,6 +78,15 @@ PowerShell 단일 스크립트 — 설치할 것 없음.
 - 라벨: `2:21/5h` = 5시간 창 리셋까지 2시간 21분 · `4/7d` = 주간 창 리셋까지 4일 (24시간 미만이면 `23h/7d`)
 - 색: 사용률 60% 미만 초록 · 85% 미만 노랑 · 그 이상 빨강
 - 표시 문구: `CC 잠시 후 재시도` = API 429(자동 회복) · `CC 재로그인 필요` = 토큰 만료(`claude` 실행해 로그인) · `CC 조회 실패` = 네트워크/프록시(툴팁에 원문)
+
+## 업데이트
+
+테마가 추가되거나 수정이 올라오면 위젯이 알려주고 스스로 갈아탑니다.
+
+- **자동 점검**: 시작 20초 뒤 1회, 이후 하루 1회 GitHub 를 확인합니다. 새 버전이 있으면 위젯 **우상단에 노란 점**이 뜨고 툴팁·메뉴에 "새 버전 있음" 이 표시됩니다. 설치는 자동으로 하지 않습니다.
+- **설치**: 우클릭 → **업데이트 설치** → 확인 → 받아서 덮어쓰고 **자동 재시작**. `config.json`(테마·위치)·`last.json` 은 유지됩니다.
+- 방식은 설치 형태에 따라 자동 선택: `git clone` 이면 `git pull --ff-only`, ZIP 설치면 GitHub `main.zip` 을 다시 받아 덮어쓰기(현재 버전은 `version.txt` 로 추적).
+- 수동으로 하려면 `git pull` 후 `install.cmd`(재시작 포함).
 
 ## 동작 원리
 
@@ -91,7 +134,7 @@ powershell -ExecutionPolicy Bypass -File usage-tray.ps1 -RenderTest out.png
 | `usage-tray.ps1` | 본체 |
 | `themes\*.ps1` | 테마 플러그인 |
 | `setup.ps1` · `install.cmd` · `uninstall.cmd` | 설치/제거 |
-| `config.json` · `last.json` | 개인 설정·캐시 (자동 생성, 공유 불필요) |
+| `config.json` · `last.json` · `version.txt` | 개인 설정·캐시·설치본 버전 (자동 생성, 공유 불필요) |
 | `design\` | 테마 목업 생성기(선택) |
 
 ## 라이선스

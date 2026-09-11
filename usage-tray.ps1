@@ -30,6 +30,9 @@ $CacheFile  = Join-Path $PSScriptRoot 'last.json'   # 마지막 응답 — 재�
 $UsageUrl   = 'https://api.anthropic.com/api/oauth/usage'
 $PollSec    = 120   # API 폴링. 5시간 창은 분 단위로 천천히 움직인다 — 더 짧게 하면 429 위험
 $PlaceSec   = 2     # 위치·z순서 재확인 (explorer 재시작·해상도 변경 대응)
+$RepoUrl    = 'https://github.com/HengSsg/ai-usage-theme'   # 업데이트 원본
+$VersionFile = Join-Path $PSScriptRoot 'version.txt'        # zip 설치본의 현재 커밋 sha (git clone 이면 .git 이 정본)
+$UpdateCheckHours = 24
 $MarginX    = 12    # 작업표시줄 왼쪽 여백
 $H          = 48    # 작업표시줄 높이(실측으로 덮어씀)
 
@@ -218,6 +221,78 @@ function Get-TaskbarColor($r, [int]$sampleX) {
     } catch { return [Drawing.Color]::FromArgb(32, 32, 32) }
 }
 
+# ── 업데이트 — git clone 이면 fetch/pull, zip 설치면 GitHub main.zip 재다운로드. 개인 파일(config/last)은 보존 ──
+$script:updateAvail = $false
+$script:remoteSha   = ''
+function Test-GitClone { Test-Path (Join-Path $PSScriptRoot '.git') }
+function Get-RemoteSha {
+    $api = $RepoUrl -replace '^https://github\.com/', 'https://api.github.com/repos/'
+    (Invoke-RestMethod -Uri "$api/commits/main" -TimeoutSec 10 -Headers @{ 'User-Agent' = 'cc-usage-tray' }).sha
+}
+# $true = 새 버전 / $false = 최신 / $null = 현재 버전 미확인(zip 설치인데 version.txt 없음)
+function Test-UpdateAvailable {
+    if (Test-GitClone) {
+        git -C $PSScriptRoot fetch -q origin main 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'git fetch 실패 (네트워크 또는 git 미설치)' }
+        return ([int](git -C $PSScriptRoot rev-list --count HEAD..origin/main) -gt 0)
+    }
+    $script:remoteSha = Get-RemoteSha
+    $local = if (Test-Path $VersionFile) { (Get-Content $VersionFile -Raw).Trim() } else { '' }
+    if (-not $local) { return $null }
+    return ($script:remoteSha -ne $local)
+}
+function Invoke-Update {
+    if (Test-GitClone) {
+        $out = git -C $PSScriptRoot pull --ff-only origin main 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0) { throw "git pull 실패:`n$out" }
+        return
+    }
+    $tmp = Join-Path $env:TEMP ('cc-usage-tray-upd-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $tmp | Out-Null
+    $zip = Join-Path $tmp 'main.zip'
+    Invoke-WebRequest -Uri "$RepoUrl/archive/refs/heads/main.zip" -OutFile $zip -TimeoutSec 60 -Headers @{ 'User-Agent' = 'cc-usage-tray' }
+    Expand-Archive -Path $zip -DestinationPath $tmp -Force
+    $src = (Get-ChildItem $tmp -Directory | Select-Object -First 1).FullName
+    Get-ChildItem $src -Recurse -File | ForEach-Object {
+        $rel = $_.FullName.Substring($src.Length + 1)
+        if ($rel -in @('config.json', 'last.json', 'version.txt')) { return }
+        $dst = Join-Path $PSScriptRoot $rel
+        New-Item -ItemType Directory -Path (Split-Path $dst) -Force | Out-Null
+        Copy-Item $_.FullName $dst -Force
+    }
+    if (-not $script:remoteSha) { $script:remoteSha = Get-RemoteSha }
+    Set-Content $VersionFile $script:remoteSha -Encoding ASCII
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+}
+function Restart-Self {
+    # 새 인스턴스가 뮤텍스를 잡을 수 있게 먼저 놓는다
+    try { $mutex.ReleaseMutex(); $mutex.Dispose() } catch {}
+    Start-Process powershell -ArgumentList '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath
+    $form.Close()
+}
+function Show-Msg([string]$text, [string]$title = 'Claude Code 사용량 위젯', $buttons = 'OK', $icon = 'Information') {
+    [Windows.Forms.MessageBox]::Show($form, $text, $title, [Windows.Forms.MessageBoxButtons]$buttons, [Windows.Forms.MessageBoxIcon]$icon)
+}
+# quiet=$true: 자동 점검(표시만 갱신) / $false: 메뉴에서 눌렀을 때(결과 안내 + 설치 여부 질문)
+function Check-Update([bool]$quiet = $true) {
+    try {
+        $avail = Test-UpdateAvailable
+        $script:updateAvail = ($avail -eq $true)
+        if ($updItem) { $updItem.Text = if ($script:updateAvail) { '업데이트 설치 — 새 버전 있음' } else { '업데이트 확인' } }
+        Render-Widget
+        if ($quiet) { return }
+        $q = if ($avail -eq $true) { "새 버전이 있습니다. 지금 업데이트할까요?`n(위젯이 자동으로 재시작됩니다)" }
+             elseif ($null -eq $avail) { "현재 버전을 확인할 수 없습니다(zip 설치).`n최신 버전으로 다시 받을까요? 개인 설정은 유지됩니다." }
+             else { $null }
+        if (-not $q) { Show-Msg '최신 버전입니다.' | Out-Null; return }
+        if ((Show-Msg $q '업데이트' 'YesNo' 'Question') -ne 'Yes') { return }
+        Invoke-Update
+        Restart-Self
+    } catch {
+        if (-not $quiet) { Show-Msg ("업데이트 실패:`n" + $_.Exception.Message) '업데이트' 'OK' 'Warning' | Out-Null }
+    }
+}
+
 # ── 단일 인스턴스 — 두 개가 돌면 폴링이 두 배가 돼 429 를 부른다 ─────────────────────
 $mutex = New-Object Threading.Mutex($false, 'Local\CCUsageTray')
 if (-not $RenderTest -and -not $mutex.WaitOne(0)) { exit 0 }   # 자가점검은 UI 없이 끝나므로 예외
@@ -242,6 +317,7 @@ function Render-Bitmap($t, $d, $bg, [int]$h) {
     $g.Clear($bg)
     if ($d.Ok) { $d.L5 = Format-Left5 $d.I5; $d.L7 = Format-Left7 $d.I7; & $t.Draw $g $d $w $h }
     else       { Draw-Text $g $d.Err 15 $true $Col.Dim 8 ($h / 2) }
+    if ($script:updateAvail) { Fill-Circle $g $Col.Gold ($w - 6) 6 3 }   # 새 버전 표시점 (우상단)
     $g.Dispose(); return $bmp
 }
 
@@ -275,6 +351,7 @@ function Render-Widget {
     $old = $pic.Image; $pic.Image = $bmp; if ($old) { $old.Dispose() }
     $text = if ($d.Ok) { "5시간 {0}%  리셋 {1}`n주간 {2}%  리셋 {3}`n테마: {4}" -f $d.S5, $d.R5, $d.S7, $d.R7, $t.Name } else { $d.Msg }
     if ($d.Ok -and $d.Stale) { $text += "`n⚠ " + $d.Msg }
+    if ($script:updateAvail) { $text += "`n● 새 버전 있음 — 우클릭 → 업데이트 설치" }
     $tip.SetToolTip($pic, $text)
 }
 
@@ -337,11 +414,18 @@ foreach ($pair in @(@('auto', '자동 (아이콘 정렬에 따라)'), @('left', 
 }
 [void]$menu.Items.Add($posMenu)
 [void]$menu.Items.Add('지금 새로고침', $null, { Update-Widget }.GetNewClosure())
+[void]$menu.Items.Add((New-Object Windows.Forms.ToolStripSeparator))
+$updItem = New-Object Windows.Forms.ToolStripMenuItem '업데이트 확인'
+$updItem.Add_Click({ Check-Update $false }.GetNewClosure())
+[void]$menu.Items.Add($updItem)
 [void]$menu.Items.Add('종료', $null, { $form.Close() }.GetNewClosure())
 $form.ContextMenuStrip = $menu; $pic.ContextMenuStrip = $menu
 
 $poll = New-Object Windows.Forms.Timer;  $poll.Interval = $PollSec * 1000;   $poll.Add_Tick({ Update-Widget }.GetNewClosure())
 $place = New-Object Windows.Forms.Timer; $place.Interval = $PlaceSec * 1000; $place.Add_Tick({ Set-Placement }.GetNewClosure())
+# 업데이트 자동 점검 — 시작 20초 뒤 1회, 이후 24시간마다 (표시만, 설치는 사용자가 메뉴에서)
+$upd = New-Object Windows.Forms.Timer; $upd.Interval = 20000
+$upd.Add_Tick({ $upd.Interval = $UpdateCheckHours * 3600 * 1000; Check-Update $true }.GetNewClosure())
 
 $form.Add_Shown({
     Set-Placement
@@ -354,6 +438,6 @@ $form.Add_Shown({
     } else {
         Update-Widget
     }
-    $poll.Start(); $place.Start()
+    $poll.Start(); $place.Start(); $upd.Start()
 }.GetNewClosure())
 [Windows.Forms.Application]::Run($form)

@@ -1,6 +1,7 @@
-# 개인 설정·캐시
+# 개인 설정·캐시·설치본 버전
 config.json
 last.json
+version.txt
 # Claude Design 캔버스 산출물(2MB, 에디터 페이로드 포함) — 소스는 design/gen.py + *.dc.html
 design/cc-usage-widget-themes.html
 __pycache__/
