@@ -18,7 +18,11 @@ PowerShell 단일 스크립트 — 설치할 것 없음.
 
 ## 설치 / 제거
 
-1. 이 폴더를 원하는 위치에 둡니다. 예: `%USERPROFILE%\tools\cc-usage-tray`
+1. 받기 — 둘 중 하나:
+   ```
+   git clone https://github.com/HengSsg/ai-usage-theme.git %USERPROFILE%\tools\cc-usage-tray
+   ```
+   또는 GitHub 에서 **Code → Download ZIP** 을 풀어 원하는 위치에 둡니다. (git clone 이면 나중에 `git pull` 로 업데이트)
 2. **`install.cmd` 더블클릭** → 시작프로그램 등록 + 즉시 실행
 3. 제거: **`uninstall.cmd`** (위젯 종료 · 시작프로그램 해제 · 개인 설정 삭제)
 
