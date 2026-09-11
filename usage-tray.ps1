@@ -642,7 +642,9 @@ foreach ($pair in @(@('auto', '자동 (아이콘 정렬에 따라)'), @('left', 
 [void]$menu.Items.Add('지금 새로고침', $null, { Request-Refresh }.GetNewClosure())
 [void]$menu.Items.Add((New-Object Windows.Forms.ToolStripSeparator))
 $updItem = New-Object Windows.Forms.ToolStripMenuItem '업데이트 확인'
-$updItem.Add_Click({ $script:updInteractive = $true; Start-UpdateCheck }.GetNewClosure())
+# 여기도 같은 이유로 파일 스코프 함수 경유 — 인라인 `$script:updInteractive = $true` 는 클로저 안에만 써져 대화상자가 안 뜬다
+function Request-UpdateCheck { $script:updInteractive = $true; Start-UpdateCheck }
+$updItem.Add_Click({ Request-UpdateCheck }.GetNewClosure())
 [void]$menu.Items.Add($updItem)
 [void]$menu.Items.Add((New-Object Windows.Forms.ToolStripSeparator))   # 업데이트 바로 아래 붙어 오클릭하기 쉬웠다
 [void]$menu.Items.Add('종료', $null, { $form.Close() }.GetNewClosure())
@@ -667,7 +669,10 @@ $tick.Add_Tick({ On-Tick }.GetNewClosure())
 # 애니메이션 — 테마가 `Anim = <ms>` 를 선언하면 그 주기로 그림만 다시 그린다.
 # 숨겨져 있을 땐 돌리지 않는다(자동숨김 작업표시줄에서 헛돌면 CPU 만 먹는다).
 $anim = New-Object Windows.Forms.Timer
-$anim.Add_Tick({ try { $script:frame++; Render-Widget $false } catch { Write-ErrLog 'anim' $_ } }.GetNewClosure())
+# ⚠️ 증가는 반드시 파일 스코프 함수에서 — 핸들러 스크립트블록(GetNewClosure) 안에서 `$script:frame++` 하면
+# 클로저 모듈의 script 스코프에 써져 파일 쪽 값은 0 에 머문다(= 매 프레임 같은 그림, 애니메이션이 멈춘 것처럼 보임).
+function Tick-Anim { $script:frame++; Render-Widget $false }
+$anim.Add_Tick({ try { Tick-Anim } catch { Write-ErrLog 'anim' $_ } }.GetNewClosure())
 function Sync-Anim {
     try {
         $ms = [int]$Themes[$script:themeId].Anim
