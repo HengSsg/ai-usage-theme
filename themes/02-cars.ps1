@@ -3,11 +3,11 @@
     Id = 'cars'; Name = '자동차'; Width = 260
     Draw = {
         param($g, $d, $w, $h)
-        # 도로 + 차선 (주행 구간 44~240, 그 앞은 라벨 자리)
+        # 도로 + 차선 (주행 구간 66~240, 그 앞은 라벨·% 자리)
         Fill-RoundRect $g $Col.Road 0 2 254 44 4
         $pen = New-Object Drawing.Pen ([Drawing.Color]::FromArgb(90, 90, 90)), 1.5
         $pen.DashPattern = [float[]]@(4.67, 4)      # 7px 선 / 6px 공백 (펜 폭 단위)
-        $g.DrawLine($pen, [float]42, [float]24, [float]242, [float]24); $pen.Dispose()
+        $g.DrawLine($pen, [float]74, [float]24, [float]242, [float]24); $pen.Dispose()
         # 결승 깃발 — 4px 체크무늬 2열 x 10행
         $bl = New-Object Drawing.SolidBrush $Col.Light
         $bd = New-Object Drawing.SolidBrush ([Drawing.Color]::FromArgb(30, 30, 30))
@@ -20,6 +20,9 @@
         $bl.Dispose(); $bd.Dispose()
         Draw-Text $g $d.L5 9 $true $Col.Dim 4 13
         Draw-Text $g $d.L7 9 $true $Col.Dim 4 35
+        # 오른쪽 정렬 — 100% 처럼 자릿수가 늘어도 도로 쪽으로 번지지 않는다(왼쪽 라벨과는 여백 확보)
+        Draw-Text $g "$($d.S5)%" 10 $true $d.C5 70 13 'Far'
+        Draw-Text $g "$($d.S7)%" 10 $true $d.C7 70 35 'Far'
 
         $win  = [Drawing.Color]::FromArgb(140, 26, 26, 26)
         $tire = [Drawing.Color]::FromArgb(17, 17, 17)
@@ -27,7 +30,7 @@
         $lamp = New-Object Drawing.SolidBrush ([Drawing.Color]::FromArgb(255, 248, 192))
 
         # 승용차 (위 차선) — 폭 26
-        $g.TranslateTransform([float](44 + 170 * $d.S5 / 100), [float]0)
+        $g.TranslateTransform([float](76 + 138 * $d.S5 / 100), [float]0)
         Fill-RoundRect $g $d.C5 6 4 13 6 2          # 지붕
         Fill-RoundRect $g $d.C5 0 9 26 8 2          # 차체
         Fill-RoundRect $g $win 8 5 9 4 1            # 창
@@ -36,7 +39,7 @@
         $g.ResetTransform()
 
         # 화물차 (아래 차선) — 폭 34
-        $g.TranslateTransform([float](44 + 162 * $d.S7 / 100), [float]0)
+        $g.TranslateTransform([float](76 + 130 * $d.S7 / 100), [float]0)
         Fill-RoundRect $g $d.C7 0 27 22 13 1.5      # 적재함
         Fill-RoundRect $g $d.C7 23 31 11 9 2        # 운전석
         Fill-RoundRect $g $win 27 32.5 5.5 4 1      # 창
