@@ -67,7 +67,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 
 | 메뉴 | 내용 |
 |---|---|
-| 테마 | 막대 게이지(기본) · 자동차(승용차=5h, 화물차=7d) · 배터리(잔량=남은 한도) |
+| 테마 | 12종 — 아래 「테마」 표 |
 | 위치 | 자동(아이콘 가운데 정렬이면 왼쪽, 왼쪽 정렬이면 트레이 앞) · 왼쪽 · 오른쪽 |
 | 지금 새로고침 | 즉시 재조회 |
 | 업데이트 확인 | GitHub 최신 버전 확인 → 있으면 설치 후 자동 재시작 (아래 「업데이트」) |
@@ -78,6 +78,27 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 - 라벨: `2:21/5h` = 5시간 창 리셋까지 2시간 21분 · `4/7d` = 주간 창 리셋까지 4일 (24시간 미만이면 `23h/7d`)
 - 색: 사용률 60% 미만 초록 · 85% 미만 노랑 · 그 이상 빨강
 - 표시 문구: `CC 잠시 후 재시도` = API 429(자동 회복) · `CC 재로그인 필요` = 토큰 만료(`claude` 실행해 로그인) · `CC 조회 실패` = 네트워크/프록시(툴팁에 원문)
+
+## 테마
+
+앞의 셋은 벡터, 나머지는 **2px 도트 픽셀아트**(48px = 24행). 5h·7d 두 지표를 각 테마가 어떻게 나누는지:
+
+| # | 테마 | 표현 | 5h / 7d |
+|---|---|---|---|
+| 01 | 막대 게이지 (기본) | 진행 막대 + 숫자 | 두 줄 |
+| 02 | 자동차 | 결승 깃발까지 달리는 차 | 승용차 / 화물차 |
+| 03 | 배터리 | 잔량 = 남은 한도 | 두 개 |
+| 04 | 밧줄 | 쓸수록 너덜너덜 → 75% 한 가닥 → **100% 뚝** | 가는 줄 / 굵은 줄 |
+| 05 | 배부름 | 배 크기·표정 = 5h 남은 양, 밥그릇 = 7d 남은 양. 100% 쓰면 기절 x_x | 캐릭터 / 밥그릇 |
+| 06 | 하트 HP | 하트 10개, 10% 마다 하나씩 비어감 | 두 줄 |
+| 07 | 풍선 | 쓸수록 부풀어 **100% 펑** | 빨강 / 파랑 |
+| 08 | 젠가 | 블록이 빠지고 70% 부터 기울다 100% 와르르 | 두 탑 |
+| 09 | 커피 | 잔 속 커피 = 남은 양, 가득하면 김 | 에스프레소 / 머그 |
+| 10 | 양초 | 남은 만큼 초, 불꽃 깜빡, 다 타면 연기 | 짧은 초 / 긴 초 |
+| 11 | 눈사람 | 녹아서 웅덩이, 100% 면 모자·당근만 | 두 눈사람 |
+| 12 | 모래시계 | 위 모래 = 남은 양, 목에서 떨어지는 모래 | 두 개 |
+
+깜빡임(불꽃·김·떨어지는 모래)은 분 단위로 바뀝니다 — 위젯이 매 분 다시 그리는 타이밍에 맞춘 것.
 
 ## 업데이트
 
@@ -97,7 +118,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 
 ## 테마 추가
 
-`themes\N-이름.ps1` 파일이 아래 해시테이블을 **마지막 표현식으로 반환**하면 메뉴에 자동 등록됩니다(숫자 접두 = 메뉴 순서).
+`themes\NN-이름.ps1` 파일이 아래 해시테이블을 **마지막 표현식으로 반환**하면 메뉴에 자동 등록됩니다(두 자리 숫자 접두 = 메뉴 순서).
 
 ```powershell
 @{
@@ -112,6 +133,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 
 `$d`: `S5` `S7`(사용률 %) · `C5` `C7` `CD`(색, CD 는 둘 중 높은 쪽) · `L5` `L7`(남은시간/창 라벨) · `R5` `R7`(리셋 문구).
 헬퍼: `Draw-Text`(세로중심 기준) · `Fill-RoundRect` · `Draw-RoundRect` · `Fill-Circle` · `Measure-Text` · `$Col`(Green/Gold/Red/Track/Label/Dim/Light/Road) · `Get-LevelColor`.
+
+**픽셀아트 테마**는 `Use-PixelMode $g` 로 시작하고 셀(2px) 단위 헬퍼를 씁니다 — 캔버스는 24행 × (폭/2)열:
+
+```powershell
+Use-PixelMode $g                                  # 안티앨리어싱 off
+Px-Fill $g $Px.Cream 3 5 10 4                     # (x, y, 폭, 높이) 셀 단위
+Px-Circle $g $Px.White 9 14 3                     # (cx, cy, r)
+Draw-Sprite $g @('.##.', '####', '.##.') 2 2 @{ '#' = $Px.Red }   # 문자열 = 한 행, 글자 → 색, '.' 투명
+Draw-PixelText $g $d.L5 0 18 $Col.Label           # 3x5 픽셀 폰트 (숫자 : / % h d m)
+```
+
+`$Px` 팔레트: Ink White Gray Dark Red Pink Orange Yellow Green Blue Sky Brown Wood Cream Sand Coffee. 분마다 바뀌는 효과는 `(Get-Date).Minute % 2` 로.
 
 확인은 API 호출 없이:
 

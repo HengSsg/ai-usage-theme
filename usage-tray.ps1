@@ -99,6 +99,72 @@ function Fill-Circle($g, $color, [float]$cx, [float]$cy, [float]$r) {
     $g.FillEllipse($b, $cx - $r, $cy - $r, $r * 2, $r * 2); $b.Dispose()
 }
 
+# ── 픽셀아트 헬퍼 — 2px 셀 격자(48px = 24행). 좌표·크기는 전부 "셀" 단위 ─────────────────
+# 스프라이트 = 문자열 배열(한 글자 = 한 셀), 글자 → 팔레트 색, '.'/' ' 는 투명.
+$PxScale = 2
+$Px = @{
+    Ink    = [Drawing.Color]::FromArgb(28, 28, 32)
+    White  = [Drawing.Color]::FromArgb(242, 242, 242)
+    Gray   = [Drawing.Color]::FromArgb(130, 130, 138)
+    Dark   = [Drawing.Color]::FromArgb(64, 64, 72)
+    Red    = [Drawing.Color]::FromArgb(232, 72, 72)
+    Pink   = [Drawing.Color]::FromArgb(255, 150, 170)
+    Orange = [Drawing.Color]::FromArgb(255, 150, 50)
+    Yellow = [Drawing.Color]::FromArgb(255, 222, 80)
+    Green  = [Drawing.Color]::FromArgb(90, 210, 110)
+    Blue   = [Drawing.Color]::FromArgb(90, 160, 255)
+    Sky    = [Drawing.Color]::FromArgb(160, 210, 255)
+    Brown  = [Drawing.Color]::FromArgb(150, 100, 50)
+    Wood   = [Drawing.Color]::FromArgb(205, 155, 90)
+    Cream  = [Drawing.Color]::FromArgb(255, 235, 190)
+    Sand   = [Drawing.Color]::FromArgb(240, 200, 110)
+    Coffee = [Drawing.Color]::FromArgb(110, 70, 40)
+}
+# 픽셀 테마는 Draw 첫 줄에서 호출 — 안티앨리어싱을 꺼 셀 경계를 또렷하게
+function Use-PixelMode($g) { $g.SmoothingMode = 'None'; $g.PixelOffsetMode = 'None'; $g.InterpolationMode = 'NearestNeighbor' }
+function Px-Fill($g, $color, [int]$cx, [int]$cy, [int]$cw, [int]$ch) {
+    if ($cw -le 0 -or $ch -le 0) { return }
+    $b = New-Object Drawing.SolidBrush $color
+    $g.FillRectangle($b, $cx * $PxScale, $cy * $PxScale, $cw * $PxScale, $ch * $PxScale); $b.Dispose()
+}
+function Px-Circle($g, $color, [int]$cx, [int]$cy, [int]$r) {
+    for ($dy = -$r; $dy -le $r; $dy++) {
+        $half = [int][Math]::Floor([Math]::Sqrt($r * $r - $dy * $dy) + 0.5)
+        Px-Fill $g $color ($cx - $half) ($cy + $dy) (2 * $half + 1) 1
+    }
+}
+function Draw-Sprite($g, [string[]]$rows, [int]$cx, [int]$cy, [hashtable]$pal) {
+    $brushes = @{}
+    for ($r = 0; $r -lt $rows.Count; $r++) {
+        $line = $rows[$r]
+        for ($c = 0; $c -lt $line.Length; $c++) {
+            $k = [string]$line[$c]
+            if ($k -eq '.' -or $k -eq ' ' -or -not $pal.ContainsKey($k)) { continue }
+            if (-not $brushes.ContainsKey($k)) { $brushes[$k] = New-Object Drawing.SolidBrush $pal[$k] }
+            $g.FillRectangle($brushes[$k], ($cx + $c) * $PxScale, ($cy + $r) * $PxScale, $PxScale, $PxScale)
+        }
+    }
+    foreach ($b in $brushes.Values) { $b.Dispose() }
+}
+# 3x5 픽셀 폰트 — 라벨(2:21/5h · 4/7d · 38%)에 필요한 글자만. 글자 폭 3 + 간격 1 = 4셀
+$PxFont = @{
+    '0' = @('###', '#.#', '#.#', '#.#', '###'); '1' = @('.#.', '##.', '.#.', '.#.', '###'); '2' = @('###', '..#', '###', '#..', '###')
+    '3' = @('###', '..#', '###', '..#', '###'); '4' = @('#.#', '#.#', '###', '..#', '..#'); '5' = @('###', '#..', '###', '..#', '###')
+    '6' = @('###', '#..', '###', '#.#', '###'); '7' = @('###', '..#', '..#', '..#', '..#'); '8' = @('###', '#.#', '###', '#.#', '###')
+    '9' = @('###', '#.#', '###', '..#', '###'); ':' = @('...', '.#.', '...', '.#.', '...'); '/' = @('..#', '..#', '.#.', '#..', '#..')
+    '%' = @('#.#', '..#', '.#.', '#..', '#.#'); 'h' = @('#..', '#..', '###', '#.#', '#.#'); 'd' = @('..#', '..#', '###', '#.#', '###')
+    'm' = @('...', '...', '##.', '###', '#.#'); ' ' = @('...', '...', '...', '...', '...')
+}
+function Draw-PixelText($g, [string]$text, [int]$cx, [int]$cy, $color) {
+    $pal = @{ '#' = $color }
+    foreach ($ch in $text.ToCharArray()) {
+        $gl = $PxFont[[string]$ch]; if (-not $gl) { $gl = $PxFont[' '] }
+        Draw-Sprite $g $gl $cx $cy $pal
+        $cx += 4
+    }
+}
+function Measure-PixelText([string]$text) { return $text.Length * 4 - 1 }
+
 # ── 테마 로딩: themes\*.ps1 은 @{ Id; Name; Width(int|scriptblock); Draw={param($g,$d,$w,$h)} } 를 반환 ──
 $Themes = [ordered]@{}
 foreach ($f in (Get-ChildItem (Join-Path $PSScriptRoot 'themes\*.ps1') | Sort-Object Name)) {
@@ -317,6 +383,7 @@ function Render-Bitmap($t, $d, $bg, [int]$h) {
     $g.Clear($bg)
     if ($d.Ok) { $d.L5 = Format-Left5 $d.I5; $d.L7 = Format-Left7 $d.I7; & $t.Draw $g $d $w $h }
     else       { Draw-Text $g $d.Err 15 $true $Col.Dim 8 ($h / 2) }
+    $g.SmoothingMode = 'AntiAlias'   # 픽셀 테마가 꺼 놨을 수 있음
     if ($script:updateAvail) { Fill-Circle $g $Col.Gold ($w - 6) 6 3 }   # 새 버전 표시점 (우상단)
     $g.Dispose(); return $bmp
 }
@@ -324,13 +391,13 @@ function Render-Bitmap($t, $d, $bg, [int]$h) {
 # 자가점검 — 테마 x (38/72, 91/12) 두 데이터로 1x·2x 렌더 시트를 만들고 종료
 if ($RenderTest) {
     $dark = [Drawing.Color]::FromArgb(32, 32, 32)
-    $sheet = New-Object Drawing.Bitmap 820, ($Themes.Count * 2 * 104 + 8)
+    $sheet = New-Object Drawing.Bitmap 840, ($Themes.Count * 3 * 104 + 8)
     $sg = [Drawing.Graphics]::FromImage($sheet); $sg.Clear($dark); $sg.InterpolationMode = 'NearestNeighbor'
     $y = 4
     $now = (Get-Date).ToUniversalTime()
     foreach ($t in $Themes.Values) {
-        # (5h%, 7d%, 5h 남은분, 7d 남은분) — 2:21/5h·1/7d 와 0:40/5h·23h/7d 두 경우
-        foreach ($p in @(@(38, 72, 141, 1620), @(91, 12, 40, 1380))) {
+        # (5h%, 7d%, 5h 남은분, 7d 남은분) — 2:21/5h·1/7d / 0:40/5h·23h/7d / 둘 다 100%(끊어짐·기절·펑)
+        foreach ($p in @(@(38, 72, 141, 1620), @(91, 12, 40, 1380), @(100, 100, 5, 30))) {
             $d = @{ Ok = $true; S5 = $p[0]; S7 = $p[1]; C5 = (Get-LevelColor $p[0]); C7 = (Get-LevelColor $p[1])
                     CD = (Get-LevelColor ([Math]::Max($p[0], $p[1]))); R5 = '-'; R7 = '-'
                     I5 = $now.AddMinutes($p[2]).ToString('o'); I7 = $now.AddMinutes($p[3]).ToString('o') }
