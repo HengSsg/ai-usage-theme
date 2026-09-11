@@ -31,16 +31,32 @@ public class TopGuard {
  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h,IntPtr a,int x,int y,int w,int t,uint f);
  static Proc _cb;                                   // GC 가 수거하면 콜백 시점에 죽는다 — 반드시 참조 유지
  static IntPtr _hook = IntPtr.Zero, _target = IntPtr.Zero;
+ static System.Threading.AutoResetEvent _sig = new System.Threading.AutoResetEvent(false);
+ static System.Threading.Thread _worker; static bool _run;
  public static void Start(IntPtr target){
    _target = target;
    if (_hook != IntPtr.Zero) return;
+   _run = true;
+   _worker = new System.Threading.Thread(Loop); _worker.IsBackground = true; _worker.Start();
    _cb = new Proc(OnEvent);
    _hook = SetWinEventHook(0x0003,0x0003,IntPtr.Zero,_cb,0,0,0);          // EVENT_SYSTEM_FOREGROUND
  }
- public static void Stop(){ if (_hook != IntPtr.Zero) { UnhookWinEvent(_hook); _hook = IntPtr.Zero; } }
- static void OnEvent(IntPtr h,uint ev,IntPtr hwnd,int o,int c,uint th,uint t){
+ public static void Stop(){ _run = false; _sig.Set(); if (_hook != IntPtr.Zero) { UnhookWinEvent(_hook); _hook = IntPtr.Zero; } }
+ static void OnEvent(IntPtr h,uint ev,IntPtr hwnd,int o,int c,uint th,uint t){ Raise(); _sig.Set(); }
+ static void Raise(){
    if (_target == IntPtr.Zero) return;
-   SetWindowPos(_target,new IntPtr(-1),0,0,0,0,0x0013);                    // TOPMOST | NOSIZE|NOMOVE|NOACTIVATE
+   // ⚠️ 이미 topmost 인 창에 HWND_TOPMOST 를 다시 주는 것만으로는 **topmost 밴드 안의 순서가 안 바뀐다**.
+   // 밴드 맨 앞으로 올리려면 HWND_TOP 이 필요하다.
+   SetWindowPos(_target,new IntPtr(-1),0,0,0,0,0x0013);   // HWND_TOPMOST | NOSIZE|NOMOVE|NOACTIVATE
+   SetWindowPos(_target,IntPtr.Zero,   0,0,0,0,0x0013);   // HWND_TOP
+ }
+ static void Loop(){
+   while (_run) {
+     _sig.WaitOne();
+     // 작업표시줄은 포그라운드 이벤트 **이후에** 스스로 올라오므로 한 번만 되올리면 늦는다(실측: 그 뒤 덮임).
+     // 이벤트마다 짧게 반복해 경쟁을 이긴다. 평소엔 이벤트가 없어 유휴 비용 0.
+     for (int i = 0; i < 8 && _run; i++) { System.Threading.Thread.Sleep(45); Raise(); }
+   }
  }
 }
 '@
