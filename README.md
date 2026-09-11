@@ -93,3 +93,7 @@ powershell -ExecutionPolicy Bypass -File usage-tray.ps1 -RenderTest out.png
 | `setup.ps1` · `install.cmd` · `uninstall.cmd` | 설치/제거 |
 | `config.json` · `last.json` | 개인 설정·캐시 (자동 생성, 공유 불필요) |
 | `design\` | 테마 목업 생성기(선택) |
+
+## 라이선스
+
+[MIT](LICENSE)
