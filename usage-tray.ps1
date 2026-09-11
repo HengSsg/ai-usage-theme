@@ -510,6 +510,7 @@ function Render-Bitmap($t, $d, $bg, [int]$h) {
         $g.Clear($bg)
         # 테마 Draw 가 던져도 위젯은 살아 있어야 한다 — 그 칸만 비우고 로그에 남긴다
         try {
+            $d.F = $script:frame; $d.BG = $bg      # 애니메이션 프레임 번호 · 배경색(정적 레이어 캐시 키용)
             if ($d.Ok) { $d.L5 = Format-Left5 $d.I5; $d.L7 = Format-Left7 $d.I7; & $t.Draw $g $d $w $h }
             else       { Draw-Text $g $d.Err 15 $true $Col.Dim 8 ($h / 2) }
         } catch {
@@ -545,11 +546,14 @@ if ($RenderTest) {
     Write-Output "rendered $($Themes.Count) themes -> $RenderTest"; exit 0
 }
 
-function Render-Widget {
+$script:frame = 0
+# $tooltip=$false: 애니메이션 프레임 — 그림만 갈아끼운다(툴팁까지 매 프레임 다시 설정하면 낭비·깜빡임)
+function Render-Widget([bool]$tooltip = $true) {
     $t = $Themes[$script:themeId]; $d = $script:data
     $bmp = Render-Bitmap $t $d $script:bg $H
     $script:width = $bmp.Width
     $old = $pic.Image; $pic.Image = $bmp; if ($old) { $old.Dispose() }
+    if (-not $tooltip) { return }
     $text = if ($d.Ok) {
         "5시간 {0}%  ·  리셋 {1} 뒤{2}`n주간 {3}%  ·  리셋 {4} 뒤{5}`n테마: {6}  |  우클릭 = 메뉴" -f `
             $d.S5, $d.R5, (Format-ResetAt $d.I5), $d.S7, $d.R7, (Format-ResetAt $d.I7), $t.Name
@@ -566,8 +570,8 @@ function Set-Placement {
     # 세로(좌/우 배치) 작업표시줄은 이 위젯의 가로 레이아웃과 맞지 않으므로 역시 숨긴다.
     $screenB = [Windows.Forms.Screen]::PrimaryScreen.Bounds.Bottom
     $hidden = ($r.T -ge $screenB - 8) -or (($r.R - $r.L) -le ($r.B - $r.T))
-    if ($hidden) { if ($form.Visible) { $form.Hide() }; return }
-    if (-not $form.Visible) { $form.Show() }
+    if ($hidden) { if ($form.Visible) { $form.Hide(); Sync-Anim }; return }
+    if (-not $form.Visible) { $form.Show(); Sync-Anim }
 
     $script:H = $r.B - $r.T
     # WS_EX_TOOLWINDOW(0x80): Alt+Tab 숨김 / WS_EX_NOACTIVATE(0x08000000): 클릭해도 포커스 안 뺏김
@@ -607,7 +611,7 @@ function Set-Theme([string]$id) {
         if (-not $Themes.Contains($id)) { return }
         $script:themeId = $id; Save-Config
         foreach ($m in $themeMenu.DropDownItems) { $m.Checked = ([string]$m.Tag -eq $id) }
-        Render-Widget; Set-Placement
+        Render-Widget; Set-Placement; Sync-Anim
     } catch { Write-ErrLog 'set-theme' $_ }
 }
 foreach ($id in $Themes.Keys) {
@@ -660,6 +664,20 @@ $tick = New-Object Windows.Forms.Timer
 $tick.Interval = $PlaceSec * 1000
 $tick.Add_Tick({ On-Tick }.GetNewClosure())
 
+# 애니메이션 — 테마가 `Anim = <ms>` 를 선언하면 그 주기로 그림만 다시 그린다.
+# 숨겨져 있을 땐 돌리지 않는다(자동숨김 작업표시줄에서 헛돌면 CPU 만 먹는다).
+$anim = New-Object Windows.Forms.Timer
+$anim.Add_Tick({ try { $script:frame++; Render-Widget $false } catch { Write-ErrLog 'anim' $_ } }.GetNewClosure())
+function Sync-Anim {
+    try {
+        $ms = [int]$Themes[$script:themeId].Anim
+        if ($ms -gt 0 -and $form.Visible) {
+            if ($anim.Interval -ne $ms) { $anim.Interval = $ms }
+            if (-not $anim.Enabled) { $anim.Start() }
+        } elseif ($anim.Enabled) { $anim.Stop() }
+    } catch { Write-ErrLog 'sync-anim' $_ }
+}
+
 $form.Add_Shown({
     try {
         Set-Placement
@@ -672,7 +690,7 @@ $form.Add_Shown({
         $script:nextFetchSec = $PollSec
         # 업데이트 자동 점검은 기동 20초 뒤 첫 회, 이후 24시간마다 (표시만 — 설치는 메뉴에서)
         $script:lastUpdCheckUtc = (Get-Date).ToUniversalTime().AddHours(-$UpdateCheckHours).AddSeconds(20)
-        Render-Widget; Set-Placement
+        Render-Widget; Set-Placement; Sync-Anim
         $tick.Start()
     } catch { Write-ErrLog 'shown' $_ }
 }.GetNewClosure())
