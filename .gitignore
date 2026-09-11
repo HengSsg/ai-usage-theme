@@ -5,3 +5,4 @@ version.txt
 # Claude Design 캔버스 산출물(2MB, 에디터 페이로드 포함) — 소스는 design/gen.py + *.dc.html
 design/cc-usage-widget-themes.html
 __pycache__/
+error.log
