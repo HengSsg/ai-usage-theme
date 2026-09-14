@@ -1,6 +1,7 @@
 ﻿# 테마: 하트 HP (픽셀) — 하트 10개 = 남은 한도, 10% 마다 하나씩 비어간다
 @{
     Id = 'hearts'; Name = '하트 HP'; Width = 252
+    Desc = '픽셀 — 하트 10개가 남은 한도. 10%마다 하나씩 비어간다.'
     Draw = {
         param($g, $d, $w, $h)
         Use-PixelMode $g

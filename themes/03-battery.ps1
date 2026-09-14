@@ -1,6 +1,7 @@
 ﻿# 테마: 배터리 — 잔량 = 남은 한도(비워질수록 소진), 옆 숫자 = 사용률, 아래 [남은시간/창]
 @{
     Id = 'battery'; Name = '배터리'; Width = 190
+    Desc = '배터리 잔량 = 남은 한도. 쓸수록 칸이 줄고 색이 바뀐다.'
     Draw = {
         param($g, $d, $w, $h)
         $frame = [Drawing.Color]::FromArgb(154, 154, 154)

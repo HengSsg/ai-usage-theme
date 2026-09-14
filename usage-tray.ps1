@@ -233,6 +233,12 @@ function Fill-Circle($g, $color, [float]$cx, [float]$cy, [float]$r) {
     $b = New-Object Drawing.SolidBrush $color
     $g.FillEllipse($b, $cx - $r, $cy - $r, $r * 2, $r * 2); $b.Dispose()
 }
+# 왼쪽 위 모서리 기준 타원 (둥근 몸통·귀·눈 같은 유기적인 모양용)
+function Fill-Ellipse($g, $color, [float]$x, [float]$y, [float]$w, [float]$h) {
+    if ($w -le 0 -or $h -le 0) { return }
+    $b = New-Object Drawing.SolidBrush $color
+    $g.FillEllipse($b, $x, $y, $w, $h); $b.Dispose()
+}
 
 # ── 픽셀아트 헬퍼 — 2px 셀 격자(48px = 24행). 좌표·크기는 전부 "셀" 단위 ─────────────────
 # 스프라이트 = 문자열 배열(한 글자 = 한 셀), 글자 → 팔레트 색, '.'/' ' 는 투명.
@@ -649,6 +655,7 @@ if ($RenderTest) {
     $sg = [Drawing.Graphics]::FromImage($sheet); $sg.Clear($dark); $sg.InterpolationMode = 'NearestNeighbor'
     $y = 4
     $now = (Get-Date).ToUniversalTime()
+    $script:frame = 0        # 케이스마다 +1 — 애니메이션 테마는 세 줄이 서로 다른 프레임으로 찍혀 움직임까지 점검된다
     foreach ($t in $Themes.Values) {
         # (5h%, 7d%, 5h 남은분, 7d 남은분) — 2:21/5h·1/7d / 0:40/5h·23h/7d / 둘 다 100%(끊어짐·기절·펑)
         foreach ($p in @(@(38, 72, 141, 1620), @(91, 12, 40, 1380), @(100, 100, 5, 30))) {
@@ -656,6 +663,7 @@ if ($RenderTest) {
                     CD = (Get-LevelColor ([Math]::Max($p[0], $p[1]))); R5 = '-'; R7 = '-'
                     I5 = $now.AddMinutes($p[2]).ToString('o'); I7 = $now.AddMinutes($p[3]).ToString('o') }
             $b = Render-Bitmap $t $d $dark 48
+            $script:frame++
             $sg.DrawImage($b, 4, ($y + 24), $b.Width, 48)
             $sg.DrawImage($b, 280, $y, ($b.Width * 2), 96)
             $b.Dispose(); $y += 104
@@ -736,6 +744,8 @@ function Set-Theme([string]$id) {
 foreach ($id in $Themes.Keys) {
     $mi = New-Object Windows.Forms.ToolStripMenuItem $Themes[$id].Name
     $mi.Tag = $id
+    # 이름만으로는 뭘 그리는 테마인지 알 수 없다 — 테마가 선언한 Desc 를 호버 툴팁으로 보여준다.
+    $mi.ToolTipText = [string]$Themes[$id].Desc
     $mi.Add_Click({ Set-Theme $id }.GetNewClosure())   # $id 는 이 회차 값으로 캡처
     [void]$themeMenu.DropDownItems.Add($mi)
 }

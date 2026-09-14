@@ -67,7 +67,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 
 | 메뉴 | 내용 |
 |---|---|
-| 테마 | 12종 — 아래 「테마」 표 |
+| 테마 | 12종 — 아래 「테마」 표. 항목에 마우스를 올리면 어떤 테마인지 설명이 뜹니다 |
 | 위치 | 자동(아이콘 가운데 정렬이면 왼쪽, 왼쪽 정렬이면 트레이 앞) · 왼쪽 · 오른쪽 |
 | 지금 새로고침 | 즉시 재조회 |
 | 업데이트 확인 | GitHub 최신 버전 확인 → 있으면 설치 후 자동 재시작 (아래 「업데이트」) |
@@ -81,7 +81,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 
 ## 테마
 
-앞의 셋은 벡터, 나머지는 **2px 도트 픽셀아트**(48px = 24행). 5h·7d 두 지표를 각 테마가 어떻게 나누는지:
+01~03 과 13 은 벡터, 나머지는 **2px 도트 픽셀아트**(48px = 24행). 5h·7d 두 지표를 각 테마가 어떻게 나누는지:
 
 | # | 테마 | 표현 | 5h / 7d |
 |---|---|---|---|
@@ -96,6 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 | 10 | 양초 | 남은 만큼 초, 불꽃 깜빡, 다 타면 연기 | 위 5h / 아래 7d |
 | 11 | 눈사람 | 녹아서 웅덩이, 100% 면 모자·당근만 | 위 5h / 아래 7d |
 | 12 | 모래시계 | 위 모래 = 남은 양, 목에서 떨어지는 모래 | 위 5h / 아래 7d |
+| 13 | 팬더와 대나무 | 두 지표를 **한 장면**에 — 숲에서 베어 → 팬더 앞에 쌓고 → 먹어 치운다. **우물우물 씹습니다** | 앞의 죽순 더미 / 뒤 대나무숲 |
 
 번호는 메뉴 정렬 순서일 뿐입니다(08 은 세로 은유가 48px 가로 위젯에 안 맞아 뺀 젠가 자리).
 
@@ -146,6 +147,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 ```powershell
 @{
     Id = 'myTheme'; Name = '내 테마'; Width = 200      # Width 는 int 또는 { param($d) ... }
+    Desc = '한 줄 설명 — 테마 메뉴에서 마우스를 올리면 뜹니다'
     Draw = {
         param($g, $d, $w, $h)                          # $g = System.Drawing.Graphics, 캔버스 $w x $h
         Draw-Text $g $d.L5 11 $true $Col.Label 8 15    # 5h 라벨(예: 2:21/5h)
@@ -155,7 +157,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 ```
 
 `$d`: `S5` `S7`(사용률 %) · `C5` `C7` `CD`(색, CD 는 둘 중 높은 쪽) · `L5` `L7`(남은시간/창 라벨) · `R5` `R7`(리셋 문구).
-헬퍼: `Draw-Text`(세로중심 기준) · `Fill-RoundRect` · `Draw-RoundRect` · `Fill-Circle` · `Measure-Text` · `$Col`(Green/Gold/Red/Track/Label/Dim/Light/Road) · `Get-LevelColor`.
+헬퍼: `Draw-Text`(세로중심 기준) · `Fill-RoundRect` · `Draw-RoundRect` · `Fill-Circle` · `Fill-Ellipse`(왼쪽위 기준) · `Measure-Text` · `$Col`(Green/Gold/Red/Track/Label/Dim/Light/Road) · `Get-LevelColor`.
 
 **픽셀아트 테마**는 `Use-PixelMode $g` 로 시작하고 셀(2px) 단위 헬퍼를 씁니다 — 캔버스는 24행 × (폭/2)열:
 
@@ -182,6 +184,8 @@ Draw-PixelText $g $d.L5 0 18 $Col.Label           # 3x5 픽셀 폰트 (숫자 : 
 | + 호버 부스트 (유휴 480ms) | **1.3%** — 정적 테마(약 1%)와 거의 같음 |
 
 비싼 건 `DrawImage`(0.04ms)가 아니라 벡터 재작도이고, 남은 비용은 창 재합성입니다. 프레임 간격만 줄여도 별로 안 떨어집니다(고정 비용이 지배적).
+
+**절대값은 PC 부하에 따라 통째로 움직이니 비교는 반드시 같은 자리에서** 하세요. 같은 세션에서 잰 예: 정적 테마 1.6% · 자동차 4.9% · 팬더 4.0%. 팬더도 자동차와 같은 수법(완성본 4컷을 미리 구워 프레임마다 붙이기)을 씁니다 — 안 굽고 매 프레임 벡터로 그리면 같은 조건에서 훨씬 비쌉니다.
 
 확인은 API 호출 없이:
 

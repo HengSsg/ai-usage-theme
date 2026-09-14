@@ -2,6 +2,7 @@
 # 라벨/초/% 를 열로 정렬한 2행 구조 (커피와 동일 — 한 칸에 겹치면 48px 에서 안 읽힌다).
 @{
     Id = 'candle'; Name = '양초'
+    Desc = '픽셀 — 남은 한도만큼 초가 남는다. 다 타면 심지에서 연기만 난다.'
     Width = { param($d) 2 * (46 + [Math]::Max((Measure-PixelText "$($d.S5)%"), (Measure-PixelText "$($d.S7)%"))) }
     Draw = {
         param($g, $d, $w, $h)

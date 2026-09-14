@@ -2,6 +2,7 @@
 # 커피·양초와 같은 2행 열 정렬 (라벨 오른쪽 정렬 | 아이콘 | %).
 @{
     Id = 'snowman'; Name = '눈사람'
+    Desc = '픽셀 — 쓸수록 녹아 작아지고 물웅덩이가 커진다. 다 녹으면 모자와 당근만 남는다.'
     Width = { param($d) 2 * (46 + [Math]::Max((Measure-PixelText "$($d.S5)%"), (Measure-PixelText "$($d.S7)%"))) }
     Draw = {
         param($g, $d, $w, $h)

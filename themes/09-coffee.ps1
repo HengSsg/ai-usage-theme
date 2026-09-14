@@ -2,6 +2,7 @@
 # 라벨/잔/% 를 열로 정렬한 2행 구조 — 아이콘·숫자·라벨을 한 칸에 겹쳐 놓으면 48px 에서 뭉쳐 안 읽힌다.
 @{
     Id = 'coffee'; Name = '커피'
+    Desc = '픽셀 — 잔에 남은 커피가 남은 한도. 작은 잔 = 5시간, 머그 = 7일.'
     # % 자릿수만큼만 차지한다 (한 자리면 104px, 100% 면 120px)
     Width = { param($d) 2 * (46 + [Math]::Max((Measure-PixelText "$($d.S5)%"), (Measure-PixelText "$($d.S7)%"))) }
     Draw = {

@@ -2,6 +2,7 @@
 # 커피·양초와 같은 2행 열 정렬 (라벨 오른쪽 정렬 | 아이콘 | %).
 @{
     Id = 'hourglass'; Name = '모래시계'
+    Desc = '픽셀 — 위쪽 모래가 남은 한도, 아래쪽이 이미 쓴 양.'
     Width = { param($d) 2 * (46 + [Math]::Max((Measure-PixelText "$($d.S5)%"), (Measure-PixelText "$($d.S7)%"))) }
     Draw = {
         param($g, $d, $w, $h)
