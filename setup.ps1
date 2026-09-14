@@ -14,15 +14,18 @@ $TaskName = 'Claude Code Usage Widget'
 function Register-Watchdog {
     try {
         $act = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" `
-                   -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Widget`"" -WorkingDirectory $PSScriptRoot
-        $tLogon  = New-ScheduledTaskTrigger -AtLogOn
-        $tRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) `
-                       -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([TimeSpan]::MaxValue)
+                   -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Widget`"" -WorkingDirectory $PSScriptRoot
+        # ⚠️ 관리자 없이 등록하려면 두 가지를 지켜야 한다 (실측 2026-09-14 — 둘 중 하나만 틀려도 등록 전체가 실패):
+        #   ① -AtLogOn 에 -User 를 반드시 준다. 없으면 "모든 사용자" 로그온 트리거가 돼 Access is denied.
+        #   ② -RepetitionDuration 은 주지 않는다. [TimeSpan]::MaxValue 는 P99999999DT23H59M59S 라는
+        #      잘못된 XML 로 나가 거부된다. 생략하면 그게 곧 "무기한 반복" 이다.
+        $tLogon  = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+        $tRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 5)
         $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
                    -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
         Register-ScheduledTask -TaskName $TaskName -Action $act -Trigger $tLogon, $tRepeat -Settings $set -Force -ErrorAction Stop | Out-Null
-        return $true
-    } catch { return $false }
+        return ''
+    } catch { return $_.Exception.Message }   # 실패 사유를 삼키지 말 것 — 권한 문제로 오진하게 된다
 }
 
 function Stop-Widget {
@@ -72,10 +75,10 @@ $wd = Register-Watchdog
 Stop-Widget; Start-Sleep -Milliseconds 500
 Start-Process powershell -ArgumentList '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', $Widget
 Write-Host "설치 완료 — 작업표시줄에 위젯이 뜹니다(로그인 시 자동 시작). 우클릭 → 테마 / 위치 / 종료."
-if ($wd) {
+if (-not $wd) {
     Write-Host "감시자(예약 작업) 등록됨 — 프로세스가 통째로 사라져도 5분 안에 다시 뜹니다."
 } else {
-    Write-Host "감시자(예약 작업) 등록 실패 — 권한/정책 문제일 수 있습니다(관리자 아님)." -ForegroundColor Yellow
+    Write-Host "감시자(예약 작업) 등록 실패: $wd" -ForegroundColor Yellow
     Write-Host "  위젯 내부 워치독은 그대로 동작하므로 멈춤(hang) 은 스스로 복구합니다." -ForegroundColor Yellow
 }
 Write-Host "폴더를 옮기면 시작프로그램 링크가 끊어지니 옮긴 뒤 install.cmd 를 다시 실행하세요. ($PSScriptRoot)"

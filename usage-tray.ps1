@@ -43,11 +43,15 @@ public class TBW {
 // (실측: 화면보호기 방치 후 Application Hang), 백그라운드 스레드는 그때도 살아 있으므로
 // 먼저 알아채고 **새 인스턴스를 띄운 뒤 스스로 끝낸다**. 예약 작업(관리자 필요)이 막힌 환경에서도 동작.
 public class Watchdog {
- static long _beat; static string _exe, _args; static bool _run; static System.Threading.Thread _t;
+ static long _beat; static string _exe, _args, _log; static bool _run; static System.Threading.Thread _t;
+ static string _mark = "";
  public static void Beat(){ System.Threading.Interlocked.Exchange(ref _beat, (long)Environment.TickCount); }
+ // UI 스레드가 지금 무슨 단계인지 남긴다 — 멈췄을 때 **어디서** 멈췄는지가 로그에 찍힌다.
+ // 이게 없으면 error.log 가 비어 있어(hang 은 예외가 아니다) 매번 추측만 하게 된다.
+ public static void Mark(string m){ _mark = m; }
  public static void Stop(){ _run = false; }
- public static void Start(string exe,string args,int timeoutMs){
-   _exe = exe; _args = args; Beat(); _run = true;
+ public static void Start(string exe,string args,string log,int timeoutMs){
+   _exe = exe; _args = args; _log = log; Beat(); _run = true;
    _t = new System.Threading.Thread(delegate(){
      while (_run) {
        try {
@@ -55,9 +59,20 @@ public class Watchdog {
          if (!_run) return;
          long gap = (long)Environment.TickCount - System.Threading.Interlocked.Read(ref _beat);
          if (gap > timeoutMs) {
-           // 새 인스턴스는 뮤텍스를 최대 8초 기다린다 → 이 프로세스가 사라지는 즉시 이어받는다
-           try { System.Diagnostics.Process.Start(_exe, _args); } catch {}
-           Environment.Exit(2);
+           // ⚠️ 인코딩을 명시해야 한다. AppendAllText 기본값은 BOM 없는 UTF-8 이라
+           // PowerShell 쪽 Write-ErrLog(UTF8+BOM)와 어긋나고, C# 이 파일을 먼저 만들면
+           // Get-Content 가 cp949 로 읽어 한글이 깨진다 (실측 2026-09-14).
+           try { System.IO.File.AppendAllText(_log, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+                   + "  [워치독] UI 스레드 " + gap + "ms 정지 (마지막 단계: " + _mark + ") — 재기동\r\n",
+                   new System.Text.UTF8Encoding(true)); } catch {}
+           try { System.Diagnostics.Process.Start(_exe, _args); }
+           catch (Exception ex) { try { System.IO.File.AppendAllText(_log, "    재기동 실패: " + ex.Message + "\r\n",
+                   new System.Text.UTF8Encoding(true)); } catch {} }
+           // ⚠️ Environment.Exit 를 쓰면 안 된다 — 종료 핸들러·파이널라이저를 돌리다가 **멈춘 UI 스레드에 걸려
+           // 같이 굳는다**. 그러면 새 인스턴스가 뮤텍스를 못 잡고 8초 뒤 물러나 결국 아무것도 안 남는다
+           // (실측 2026-09-14: 12:11 정지 → 12:38 Windows 가 종료할 때까지 대체 인스턴스 없음).
+           // TerminateProcess 는 즉시 끝내고 뮤텍스를 바로 놓아 준다.
+           System.Diagnostics.Process.GetCurrentProcess().Kill();
          }
        } catch {}
      }
@@ -711,6 +726,7 @@ function Set-Placement {
     if ($script:colorTick-- -le 0) {
         $script:colorTick = 4
         $x0 = if ($right) { $r.TrayL - $MarginX - $script:width } else { $r.L + $MarginX }
+        [Watchdog]::Mark('화면캡처')        # 이 위젯에서 가장 잘 막히는 호출 (CopyFromScreen)
         $c = Get-TaskbarColor $r $(if ($right) { $x0 - 40 } else { $x0 + $script:width + 40 })
         # 배경색 변화(테마 전환)·라이트↔다크 전환이면 다시 그린다
         $need = Set-PaletteForBackground $c
@@ -719,7 +735,7 @@ function Set-Placement {
     # 분이 바뀌면(남은시간 라벨) 다시 그린다
     $m = (Get-Date).Minute
     if ($m -ne $script:lastMin) { $script:lastMin = $m; $need = $true }
-    if ($need) { Render-Widget }
+    if ($need) { [Watchdog]::Mark('렌더'); Render-Widget }
     # 렌더로 폭이 바뀔 수 있으니 x 는 마지막에 확정. 매번 TOPMOST 재지정 — 다른 창이 위로 올라오는 걸 되돌린다. SWP_NOACTIVATE(0x0010)
     $x = if ($right) { $r.TrayL - $MarginX - $script:width } else { $r.L + $MarginX }
     [void][TBW]::SetWindowPos($form.Handle, [TBW]::TOPMOST, [int]$x, $r.T, $script:width, $script:H, 0x0010)
@@ -793,16 +809,20 @@ function On-Tick {
         [Watchdog]::Beat()      # 살아 있다는 신호 — 끊기면 워치독이 재기동한다 (잠금 중에도 계속 뛴다)
         # 화면보호기·잠금 중에는 화면을 일절 건드리지 않는다 — 이 상태의 GDI/화면캡처가 멈추면
         # UI 스레드가 막혀 Windows 가 프로세스를 죽인다(실측 2026-09-12 04:38 Application Hang).
+        [Watchdog]::Mark('세션상태')
         if ([TBW]::SessionIdle()) {
             if ($anim.Enabled) { $anim.Stop() }
             return
         }
+        [Watchdog]::Mark('응답회수')
         if ($script:usageTask -and $script:usageTask.IsCompleted) { Complete-Refresh; Render-Widget }
         if ($script:updTask   -and $script:updTask.IsCompleted)   { Complete-UpdateCheck }
         $nowU = (Get-Date).ToUniversalTime()
+        [Watchdog]::Mark('요청발사')
         if (-not $script:usageTask -and ($nowU - $script:lastFetchUtc).TotalSeconds -ge $script:nextFetchSec) { Start-Refresh }
         if (-not $script:updTask   -and ($nowU - $script:lastUpdCheckUtc).TotalHours -ge $UpdateCheckHours)   { Start-UpdateCheck }
         Set-Placement
+        [Watchdog]::Mark('대기')
     } catch { Write-ErrLog 'tick' $_ }
 }
 $tick = New-Object Windows.Forms.Timer
@@ -854,7 +874,7 @@ $form.Add_Shown({
         $tick.Start()
         # UI 스레드가 25초(틱 12회분) 넘게 멈추면 새 인스턴스를 띄우고 이 프로세스를 끝낸다
         [Watchdog]::Start((Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'),
-                          ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}"' -f $PSCommandPath), 25000)
+                          ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}"' -f $PSCommandPath), $ErrorLog, 25000)
     } catch { Write-ErrLog 'shown' $_ }
 }.GetNewClosure())
 [Windows.Forms.Application]::Run($form)
