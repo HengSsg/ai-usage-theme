@@ -6,3 +6,4 @@ version.txt
 design/cc-usage-widget-themes.html
 __pycache__/
 error.log
+stopped.flag

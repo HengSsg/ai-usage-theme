@@ -18,12 +18,53 @@ public class TBW {
  [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h,int i);
  [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr h,int i,int v);
  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h,IntPtr a,int x,int y,int w,int t,uint f);
+ [DllImport("user32.dll")] static extern IntPtr OpenInputDesktop(uint f,bool inherit,uint access);
+ [DllImport("user32.dll")] static extern bool CloseDesktop(IntPtr h);
+ [DllImport("user32.dll")] static extern bool SystemParametersInfoA(uint a,uint b,ref bool c,uint d);
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
  public static readonly IntPtr TOPMOST = new IntPtr(-1);
+ // 화면보호기 실행 중이거나 세션이 잠긴(보안 데스크톱) 상태인가?
+ // 이 상태에서 CopyFromScreen/GDI 를 건드리면 **블록될 수 있고**, UI 스레드가 멈추면
+ // Windows 가 "응답 없음" 으로 프로세스를 죽인다(실측: 화면보호기 방치 후 Application Hang).
+ public static bool SessionIdle(){
+   try { bool ss=false; if (SystemParametersInfoA(0x0072,0,ref ss,0) && ss) return true; } catch {}
+   try {
+     IntPtr d = OpenInputDesktop(0,false,0x0100);      // DESKTOP_SWITCHDESKTOP
+     if (d == IntPtr.Zero) return true;                 // 잠금/보안 데스크톱 — 접근 불가
+     CloseDesktop(d);                                   // 핸들 반드시 반납
+   } catch {}
+   return false;
+ }
 }
 // 다른 창이 포그라운드가 되면(작업표시줄 클릭 포함) Windows 가 그 창을 topmost 최상단으로 올려 위젯을 덮는다.
 // 2초 폴링이 돌 때까지 가려져 "사라졌다 다시 생기는" 것으로 보인다 → 포그라운드 변경 이벤트에 즉시 반응해 되올린다.
 // WINEVENT_OUTOFCONTEXT 콜백은 훅을 건 스레드의 메시지 루프에서 실행되므로 UI 스레드에서 Start 해야 한다.
+// UI 스레드가 멈췄는지 감시한다. UI 스레드가 막히면 Windows 가 "응답 없음" 으로 프로세스를 죽이는데
+// (실측: 화면보호기 방치 후 Application Hang), 백그라운드 스레드는 그때도 살아 있으므로
+// 먼저 알아채고 **새 인스턴스를 띄운 뒤 스스로 끝낸다**. 예약 작업(관리자 필요)이 막힌 환경에서도 동작.
+public class Watchdog {
+ static long _beat; static string _exe, _args; static bool _run; static System.Threading.Thread _t;
+ public static void Beat(){ System.Threading.Interlocked.Exchange(ref _beat, (long)Environment.TickCount); }
+ public static void Stop(){ _run = false; }
+ public static void Start(string exe,string args,int timeoutMs){
+   _exe = exe; _args = args; Beat(); _run = true;
+   _t = new System.Threading.Thread(delegate(){
+     while (_run) {
+       try {
+         System.Threading.Thread.Sleep(2000);
+         if (!_run) return;
+         long gap = (long)Environment.TickCount - System.Threading.Interlocked.Read(ref _beat);
+         if (gap > timeoutMs) {
+           // 새 인스턴스는 뮤텍스를 최대 8초 기다린다 → 이 프로세스가 사라지는 즉시 이어받는다
+           try { System.Diagnostics.Process.Start(_exe, _args); } catch {}
+           Environment.Exit(2);
+         }
+       } catch {}
+     }
+   });
+   _t.IsBackground = true; _t.Start();
+ }
+}
 public class TopGuard {
  delegate void Proc(IntPtr hHook,uint ev,IntPtr hwnd,int idObj,int idChild,uint thread,uint time);
  [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint mn,uint mx,IntPtr hmod,Proc cb,uint pid,uint tid,uint flags);
@@ -42,7 +83,9 @@ public class TopGuard {
    _hook = SetWinEventHook(0x0003,0x0003,IntPtr.Zero,_cb,0,0,0);          // EVENT_SYSTEM_FOREGROUND
  }
  public static void Stop(){ _run = false; _sig.Set(); if (_hook != IntPtr.Zero) { UnhookWinEvent(_hook); _hook = IntPtr.Zero; } }
- static void OnEvent(IntPtr h,uint ev,IntPtr hwnd,int o,int c,uint th,uint t){ Raise(); _sig.Set(); }
+ // 훅 콜백은 메시지 루프에서, Loop 는 백그라운드 스레드에서 돈다.
+ // 어느 쪽이든 예외가 새어나가면 **프로세스가 통째로 죽는다**(백그라운드 스레드 미처리 예외 = 프로세스 종료).
+ static void OnEvent(IntPtr h,uint ev,IntPtr hwnd,int o,int c,uint th,uint t){ try { Raise(); _sig.Set(); } catch {} }
  static void Raise(){
    if (_target == IntPtr.Zero) return;
    // ⚠️ 이미 topmost 인 창에 HWND_TOPMOST 를 다시 주는 것만으로는 **topmost 밴드 안의 순서가 안 바뀐다**.
@@ -52,10 +95,12 @@ public class TopGuard {
  }
  static void Loop(){
    while (_run) {
-     _sig.WaitOne();
-     // 작업표시줄은 포그라운드 이벤트 **이후에** 스스로 올라오므로 한 번만 되올리면 늦는다(실측: 그 뒤 덮임).
-     // 이벤트마다 짧게 반복해 경쟁을 이긴다. 평소엔 이벤트가 없어 유휴 비용 0.
-     for (int i = 0; i < 8 && _run; i++) { System.Threading.Thread.Sleep(45); Raise(); }
+     try {
+       _sig.WaitOne();
+       // 작업표시줄은 포그라운드 이벤트 **이후에** 스스로 올라오므로 한 번만 되올리면 늦는다(실측: 그 뒤 덮임).
+       // 이벤트마다 짧게 반복해 경쟁을 이긴다. 평소엔 이벤트가 없어 유휴 비용 0.
+       for (int i = 0; i < 8 && _run; i++) { System.Threading.Thread.Sleep(45); Raise(); }
+     } catch {}
    }
  }
 }
@@ -538,14 +583,30 @@ function Complete-UpdateCheck {
 }
 
 # ── 단일 인스턴스 — 두 개가 돌면 폴링이 두 배가 돼 429 를 부른다 ─────────────────────
+$StopFlag = Join-Path $PSScriptRoot 'stopped.flag'
 $mutex = New-Object Threading.Mutex($false, 'Local\CCUsageTray')
 if (-not $RenderTest) {
+    # 메뉴에서 "종료" 했으면 감시자(예약 작업)가 되살리지 않게 한다. 재부팅하면 다시 뜬다.
+    if (Test-Path $StopFlag) {
+        $stale = $true
+        try { $stale = ((Get-Item $StopFlag).LastWriteTime -lt (Get-CimInstance Win32_OperatingSystem).LastBootUpTime) } catch {}
+        if (-not $stale) { exit 0 }
+        Remove-Item $StopFlag -Force -ErrorAction SilentlyContinue
+    }
     # 앞 인스턴스가 비정상 종료하면 뮤텍스가 "버려진" 상태가 되고 WaitOne 이 AbandonedMutexException 을
     # 던진다(소유권은 획득된 상태). 안 잡으면 크래시 뒤 자동시작이 계속 실패해 위젯이 영영 안 뜬다.
+    # 0 이 아니라 8초를 기다린다 — 워치독이 재기동할 때 죽어가는 옛 인스턴스가 뮤텍스를 놓는 순간
+    # 이어받기 위해서다. 평범한 중복 실행은 8초 뒤 조용히 종료된다.
     $got = $false
-    try { $got = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $got = $true }
+    try { $got = $mutex.WaitOne(8000) } catch [Threading.AbandonedMutexException] { $got = $true }
     if (-not $got) { exit 0 }   # 이미 떠 있음
 }
+
+# 미처리 예외로 조용히 죽지 않게 — UI 스레드 예외는 삼키고 기록만 남긴다(위젯은 계속 산다).
+# 창을 만들기 전에 호출해야 한다.
+[Windows.Forms.Application]::SetUnhandledExceptionMode([Windows.Forms.UnhandledExceptionMode]::CatchException)
+[Windows.Forms.Application]::add_ThreadException({ param($s, $ev) Write-ErrLog 'UI예외' $ev.Exception })
+[AppDomain]::CurrentDomain.add_UnhandledException({ param($s, $ev) Write-ErrLog 'FATAL' $ev.ExceptionObject })
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 $form = New-Object Windows.Forms.Form
@@ -705,13 +766,27 @@ function Request-UpdateCheck { $script:updInteractive = $true; Start-UpdateCheck
 $updItem.Add_Click({ Request-UpdateCheck }.GetNewClosure())
 [void]$menu.Items.Add($updItem)
 [void]$menu.Items.Add((New-Object Windows.Forms.ToolStripSeparator))   # 업데이트 바로 아래 붙어 오클릭하기 쉬웠다
-[void]$menu.Items.Add('종료', $null, { [TopGuard]::Stop(); $form.Close() }.GetNewClosure())
+# 상태 변경은 파일 스코프 함수에서 (핸들러 안 `$script:` 대입은 클로저 모듈로 새어 안 먹는다)
+function Close-Widget {
+    try { Set-Content $StopFlag ((Get-Date).ToString('o')) -Encoding ASCII } catch {}
+    try { [Watchdog]::Stop() } catch {}      # 의도적 종료 — 되살리지 말 것
+    try { [TopGuard]::Stop() } catch {}
+    $form.Close()
+}
+[void]$menu.Items.Add('종료', $null, { Close-Widget }.GetNewClosure())
 $form.ContextMenuStrip = $menu; $pic.ContextMenuStrip = $menu
 
 # ── 단일 틱: 비동기 요청 회수 → 다음 요청 발사 → 배치. 여기서 절대 블로킹하지 않는다 ──
 # 주기를 1초로 하면 PowerShell 스크립트블록 실행 비용만으로 CPU 가 한 코어의 1% 가량 나간다. 2초면 충분.
 function On-Tick {
     try {
+        [Watchdog]::Beat()      # 살아 있다는 신호 — 끊기면 워치독이 재기동한다 (잠금 중에도 계속 뛴다)
+        # 화면보호기·잠금 중에는 화면을 일절 건드리지 않는다 — 이 상태의 GDI/화면캡처가 멈추면
+        # UI 스레드가 막혀 Windows 가 프로세스를 죽인다(실측 2026-09-12 04:38 Application Hang).
+        if ([TBW]::SessionIdle()) {
+            if ($anim.Enabled) { $anim.Stop() }
+            return
+        }
         if ($script:usageTask -and $script:usageTask.IsCompleted) { Complete-Refresh; Render-Widget }
         if ($script:updTask   -and $script:updTask.IsCompleted)   { Complete-UpdateCheck }
         $nowU = (Get-Date).ToUniversalTime()
@@ -767,6 +842,9 @@ $form.Add_Shown({
         Render-Widget; Set-Placement; Sync-Anim
         [TopGuard]::Start($form.Handle)      # 포그라운드 전환 시 즉시 최상단 복귀
         $tick.Start()
+        # UI 스레드가 25초(틱 12회분) 넘게 멈추면 새 인스턴스를 띄우고 이 프로세스를 끝낸다
+        [Watchdog]::Start((Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'),
+                          ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}"' -f $PSCommandPath), 25000)
     } catch { Write-ErrLog 'shown' $_ }
 }.GetNewClosure())
 [Windows.Forms.Application]::Run($form)
