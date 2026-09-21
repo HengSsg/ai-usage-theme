@@ -1,223 +1,227 @@
-# Claude Code 사용량 작업표시줄 위젯
+# Claude Code Usage Taskbar Widget
 
-Claude Code 구독 한도(5시간 창 · 주간 창) 소진률을 Windows 11 **작업표시줄에 상시 표시**합니다.
-PowerShell 단일 스크립트 — 설치할 것 없음.
+*[한국어 README](README.ko.md)*
 
-![테마 3종 — 막대 게이지 · 자동차 · 배터리 (왼쪽 실제 크기, 오른쪽 2배)](docs/themes.png)
+Shows how much of your Claude Code subscription limits (5-hour window · weekly window) you have burned, **pinned to the Windows 11 taskbar**. A single PowerShell script — nothing to install.
 
-```
-2:21/5h ████████░░░░░░░░ 38%      ← 5시간 창: 리셋까지 2시간 21분, 38% 사용
-   4/7d ██████████████░░ 72%      ← 주간 창: 리셋까지 4일, 72% 사용
-```
-
-## AI 에게 설치 맡기기 (가장 쉬움)
-
-Claude Code(또는 셸을 쓸 수 있는 다른 AI 코딩 도구)에 아래를 그대로 붙여 넣으세요.
+![Three of the twelve themes — bar gauge · cars · battery (actual size on the left, 2x on the right)](docs/themes.png)
 
 ```
-https://github.com/HengSsg/ai-usage-theme 의 README 를 읽고 그 절차대로 Claude Code 사용량 위젯을 설치해줘.
-%USERPROFILE%\tools\cc-usage-tray 에 git clone 한 뒤 setup.ps1 을 실행하고, 끝나면 작업표시줄에 위젯이 보이는지 확인해서 알려줘.
-"로그인 정보가 없습니다" 가 나오면 내가 claude 로그인을 해야 한다고 알려주고 기다려.
+2:21/5h ████████░░░░░░░░ 38%      ← 5-hour window: 2h 21m until reset, 38% used
+   4/7d ██████████████░░ 72%      ← weekly window: 4 days until reset, 72% used
 ```
 
-업데이트도 한 줄이면 됩니다:
+> **Heads-up for non-Korean speakers:** the widget's own UI — right-click menu, theme names, error labels — is currently **Korean only**. The tables below tell you what each menu item says. Everything else (numbers, gauges, artwork) is language-neutral. PRs adding UI localization are welcome.
+
+## Let an AI install it (easiest)
+
+Paste this into Claude Code, or any other AI coding tool that can run a shell:
 
 ```
-%USERPROFILE%\tools\cc-usage-tray 의 Claude Code 사용량 위젯을 최신으로 업데이트해줘 (git pull 후 setup.ps1 재실행).
+Read the README at https://github.com/HengSsg/ai-usage-theme and install the Claude Code usage widget by following it.
+Clone it into %USERPROFILE%\tools\cc-usage-tray, run setup.ps1, then check the taskbar and tell me whether the widget is showing.
+If you see "로그인 정보가 없습니다" (no login credentials), tell me I need to log into claude and wait for me.
+```
+
+Updating is one line too:
+
+```
+Update the Claude Code usage widget in %USERPROFILE%\tools\cc-usage-tray to the latest version (git pull, then re-run setup.ps1).
 ```
 
 <details>
-<summary>AI 에이전트용 실행 절차 (사람은 안 읽어도 됨)</summary>
+<summary>Procedure for AI agents (humans can skip this)</summary>
 
 ```
-# 설치 — 순서대로 실행하고 마지막 출력에 "설치 완료" 가 있는지 확인
+# Install — run in order, then confirm the last output contains "설치 완료" (installation complete)
 git clone https://github.com/HengSsg/ai-usage-theme.git "%USERPROFILE%\tools\cc-usage-tray"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usage-tray\setup.ps1"
 
-# 출력이 "Claude Code 로그인 정보가 없습니다" 면: 사용자에게 `claude` 실행 후 구독 계정 로그인을 요청하고, 로그인 뒤 setup.ps1 만 다시 실행
-# 이미 폴더가 있으면(재설치·업데이트): git -C "%USERPROFILE%\tools\cc-usage-tray" pull --ff-only  →  setup.ps1 재실행
-# 확인: 작업표시줄 왼쪽(아이콘 가운데 정렬) 또는 트레이 앞(아이콘 왼쪽 정렬)에 "H:MM/5h … N/7d …" 위젯. 프로세스: powershell.exe (usage-tray.ps1)
-# 제거: powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usage-tray\setup.ps1" -Uninstall
+# If the output says "Claude Code 로그인 정보가 없습니다": ask the user to run `claude` and log in with a subscription account, then re-run setup.ps1 only
+# If the folder already exists (reinstall/update): git -C "%USERPROFILE%\tools\cc-usage-tray" pull --ff-only  ->  re-run setup.ps1
+# Verify: a "H:MM/5h ... N/7d ..." widget on the left of the taskbar (icons centered) or just before the tray (icons left-aligned). Process: powershell.exe running usage-tray.ps1
+# Uninstall: powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usage-tray\setup.ps1" -Uninstall
 ```
 
-전제: Windows 11 · Claude Code 구독(Pro/Max/Team) OAuth 로그인 · git. 그 외 설치 없음. 네트워크 접근은 `api.anthropic.com`(사용량) 과 `github.com`(설치/업데이트) 둘뿐.
+Prerequisites: Windows 11 · a Claude Code subscription (Pro/Max/Team) logged in via OAuth · git. Nothing else to install. The only network access is `api.anthropic.com` (usage) and `github.com` (install/update).
 </details>
 
-## 요구사항
+## Requirements
 
-- Windows 11 (작업표시줄 48px 기준, 배율 100%에서 확인됨) · PowerShell 5.1 (기본 내장)
-- **Claude Code 로그인 상태** — `%USERPROFILE%\.claude\.credentials.json` 이 있어야 합니다.
-  구독(Pro/Max/Team) OAuth 로그인만 지원 — API 키 로그인엔 사용량 API 가 없습니다.
+- Windows 11 (built against a 48px taskbar at 100% scaling) · PowerShell 5.1 (ships with Windows)
+- **Logged into Claude Code** — `%USERPROFILE%\.claude\.credentials.json` must exist.
+  Subscription (Pro/Max/Team) OAuth login only — API-key logins have no usage API.
 
-## 설치 / 제거
+## Install / uninstall
 
-1. 받기 — 둘 중 하나:
+1. Get it, either way:
    ```
    git clone https://github.com/HengSsg/ai-usage-theme.git %USERPROFILE%\tools\cc-usage-tray
    ```
-   또는 GitHub 에서 **Code → Download ZIP** 을 풀어 원하는 위치에 둡니다. (git clone 이면 나중에 `git pull` 로 업데이트)
-2. **`install.cmd` 더블클릭** → 시작프로그램 등록 + 즉시 실행
-3. 제거: **`uninstall.cmd`** (위젯 종료 · 시작프로그램 해제 · 개인 설정 삭제)
+   or **Code → Download ZIP** on GitHub and unpack it wherever you like. (With `git clone` you can later update via `git pull`.)
+2. **Double-click `install.cmd`** → registers a startup entry and launches the widget immediately
+3. Uninstall: **`uninstall.cmd`** (stops the widget · removes the startup entry and watchdog task · deletes your local settings)
 
-폴더를 옮기면 시작프로그램 링크가 끊어집니다 — 옮긴 뒤 `install.cmd` 를 다시 실행하세요.
+Moving the folder breaks the startup shortcut — re-run `install.cmd` after moving it.
 
-## 사용
+## Using it
 
-위젯에서 **우클릭**:
+**Right-click** the widget:
 
-| 메뉴 | 내용 |
+| Menu (Korean) | What it does |
 |---|---|
-| 테마 | 12종 — 아래 「테마」 표. 항목에 마우스를 올리면 어떤 테마인지 설명이 뜹니다 |
-| 위치 | 자동(아이콘 가운데 정렬이면 왼쪽, 왼쪽 정렬이면 트레이 앞) · 왼쪽 · 오른쪽 |
-| 지금 새로고침 | 즉시 재조회 |
-| 업데이트 확인 | GitHub 최신 버전 확인 → 있으면 설치 후 자동 재시작 (아래 「업데이트」) |
-| 종료 | 위젯 종료 (다음 로그인 때 다시 뜸 — 완전 제거는 uninstall.cmd) |
+| 테마 — *Theme* | 12 themes, listed below. Hovering an entry shows a one-line description |
+| 위치 — *Position* | Auto (left when taskbar icons are centered, before the tray when they are left-aligned) · Left · Right |
+| 지금 새로고침 — *Refresh now* | Re-query immediately |
+| 업데이트 확인 — *Check for updates* | Checks GitHub for a newer version → installs it and restarts (see [Updates](#updates)) |
+| 종료 — *Exit* | Closes the widget (it comes back at next logon — use `uninstall.cmd` to remove it for good) |
 
-마우스를 올리면 리셋까지 남은 시간이 툴팁으로 나옵니다.
+Hover the widget for a tooltip with the exact time until each reset.
 
-- 라벨: `2:21/5h` = 5시간 창 리셋까지 2시간 21분 · `4/7d` = 주간 창 리셋까지 4일 (24시간 미만이면 `23h/7d`)
-- 색: 사용률 60% 미만 초록 · 85% 미만 노랑 · 그 이상 빨강
-- 표시 문구: `CC 잠시 후 재시도` = API 429(자동 회복) · `CC 재로그인 필요` = 토큰 만료(`claude` 실행해 로그인) · `CC 조회 실패` = 네트워크/프록시(툴팁에 원문)
+- Labels: `2:21/5h` = 2h 21m until the 5-hour window resets · `4/7d` = 4 days until the weekly window resets (under 24 hours it shows `23h/7d`)
+- Colors: green below 60% used · yellow below 85% · red above
+- Status text: `CC 잠시 후 재시도` = API 429, recovers on its own · `CC 재로그인 필요` = token expired, run `claude` and log in again · `CC 조회 실패` = network/proxy problem, tooltip has the raw error
 
-## 테마
+## Themes
 
-01~03 과 13 은 벡터, 나머지는 **2px 도트 픽셀아트**(48px = 24행). 5h·7d 두 지표를 각 테마가 어떻게 나누는지:
+01–03 and 13 are vector-drawn; the rest are **2px dot pixel art** (48px tall = 24 rows). How each theme splits the two numbers:
 
-| # | 테마 | 표현 | 5h / 7d |
+| # | Theme | How it reads | 5h / 7d |
 |---|---|---|---|
-| 01 | 막대 게이지 (기본) | 진행 막대 + 숫자 | 두 줄 |
-| 02 | 자동차 | **움직입니다** — 차선이 흐르고 바퀴가 돌고 차체가 튄다(마우스 올리면 부드럽게). 위치 = 사용률 | 승용차 / 화물차 |
-| 03 | 배터리 | 잔량 = 남은 한도 | 두 개 |
-| 04 | 밧줄 | 쓸수록 너덜너덜 → 75% 한 가닥 → **100% 뚝** | 가는 줄 / 굵은 줄 |
-| 05 | 배부름 | 배 크기·표정 = 5h 남은 양, 밥그릇 = 7d 남은 양. 100% 쓰면 기절 x_x | 캐릭터 / 밥그릇 |
-| 06 | 하트 HP | 하트 10개, 10% 마다 하나씩 비어감 | 두 줄 |
-| 07 | 풍선 | 쓸수록 부풀어 **100% 펑** | 빨강 / 파랑 |
-| 09 | 커피 | 잔 속 커피 = 남은 양, 가득하면 김 | 위 작은 잔 / 아래 머그 |
-| 10 | 양초 | 남은 만큼 초, 불꽃 깜빡, 다 타면 연기 | 위 5h / 아래 7d |
-| 11 | 눈사람 | 녹아서 웅덩이, 100% 면 모자·당근만 | 위 5h / 아래 7d |
-| 12 | 모래시계 | 위 모래 = 남은 양, 목에서 떨어지는 모래 | 위 5h / 아래 7d |
-| 13 | 팬더와 대나무 | 두 지표를 **한 장면**에 — 숲에서 베어 → 팬더 앞에 쌓고 → 먹어 치운다. **우물우물 씹습니다** | 앞의 죽순 더미 / 뒤 대나무숲 |
+| 01 | Bar gauge (default) | Progress bars + numbers | Two rows |
+| 02 | Cars | **Animated** — lane markings scroll, wheels spin, the body bounces (smoother while hovered). Position = usage | Car / truck |
+| 03 | Battery | Charge left = limit left | Two cells |
+| 04 | Rope | Frays as you burn through → one strand at 75% → **snaps at 100%** | Thin rope / thick rope |
+| 05 | Full belly | Belly size and expression = 5h left, rice bowl = 7d left. Passes out at 100% | Character / bowl |
+| 06 | Heart HP | 10 hearts, one empties every 10% | Two rows |
+| 07 | Balloon | Inflates as you burn through, **pops at 100%** | Red / blue |
+| 09 | Coffee | Coffee in the cup = limit left; steams when full | Small cup / mug |
+| 10 | Candle | Wax left = limit left, flame flickers, smoke once burnt out | 5h on top / 7d below |
+| 11 | Snowman | Melts into a puddle; at 100% only the hat and carrot are left | 5h on top / 7d below |
+| 12 | Hourglass | Sand on top = limit left, grains falling through the neck | 5h on top / 7d below |
+| 13 | Panda and bamboo | Both numbers in **one scene** — cut from the grove, stack it in front of the panda, then eat it. **It chews** | Shoot pile in front / bamboo grove behind |
 
-번호는 메뉴 정렬 순서일 뿐입니다(08 은 세로 은유가 48px 가로 위젯에 안 맞아 뺀 젠가 자리).
+Numbers are just menu ordering (08 was a Jenga theme, dropped — a vertical metaphor doesn't fit a 48px-tall horizontal widget).
 
-> **테마 레이아웃 요령** — 48px 안에 아이콘·%·라벨을 한 칸에 몰아넣으면 뭉쳐서 안 읽힙니다.
-> `라벨(오른쪽 정렬) | 아이콘 | %` 를 **열로 맞춘 2행**(5h 위 / 7d 아래)이 가장 잘 읽힙니다 — 막대·밧줄·하트·커피·양초가 이 구조.
-> 세로로 차오르는 게이지는 해상도가 낮으니(6~8단) 정확한 값은 옆의 숫자에 맡기고, 그림은 "대충 얼마나 남았나" 만 전하게 두세요.
-깜빡임(불꽃·김·떨어지는 모래)은 분 단위로 바뀝니다 — 위젯이 매 분 다시 그리는 타이밍에 맞춘 것.
-라이트 테마 작업표시줄에서는 글자·게이지 색이 자동으로 어두운 쪽으로 바뀝니다.
+> **Theme layout tips** — cramming icon, percentage and label into one cell of a 48px strip makes an unreadable clump.
+> `label (right-aligned) | icon | %` as **two column-aligned rows** (5h on top, 7d below) reads best — bars, rope, hearts, coffee and candle all use it.
+> Gauges that fill vertically only have 6–8 steps of resolution, so leave the exact value to the number beside them and let the picture say roughly how much is left.
+> Blinking effects (flame, steam, falling sand) change once a minute — matched to the widget's per-minute redraw.
+> On a light-theme taskbar the text and gauge colors automatically shift darker.
 
-## 업데이트
+## Updates
 
-테마가 추가되거나 수정이 올라오면 위젯이 알려주고 스스로 갈아탑니다.
+When a theme is added or a fix lands, the widget tells you and can update itself.
 
-- **자동 점검**: 시작 20초 뒤 1회, 이후 하루 1회 GitHub 를 확인합니다. 새 버전이 있으면 위젯 **우상단에 노란 점**이 뜨고 툴팁·메뉴에 "새 버전 있음" 이 표시됩니다. 설치는 자동으로 하지 않습니다.
-- **설치**: 우클릭 → **업데이트 설치** → 확인 → 받아서 덮어쓰고 **자동 재시작**. `config.json`(테마·위치)·`last.json` 은 유지됩니다.
-- 방식은 설치 형태에 따라 자동 선택: `git clone` 이면 `git pull --ff-only`, ZIP 설치면 GitHub `main.zip` 을 다시 받아 덮어쓰기(현재 버전은 `version.txt` 로 추적).
-- 수동으로 하려면 `git pull` 후 `install.cmd`(재시작 포함).
+- **Automatic check**: once 20 seconds after startup, then once a day. If a newer version exists, a **yellow dot** appears in the widget's top-right corner and "새 버전 있음" (new version available) shows in the tooltip and menu. It does not install anything on its own.
+- **Installing**: right-click → **업데이트 설치** (install update) → confirm → downloads, overwrites, **restarts automatically**. `config.json` (theme, position) and `last.json` are preserved.
+- The method is picked from how you installed: `git pull --ff-only` for a `git clone`, or re-downloading GitHub's `main.zip` for a ZIP install (whose current version is tracked in `version.txt`).
+- Manually: `git pull`, then `install.cmd` (which includes the restart).
 
-## 동작 원리
+## How it works
 
-- Claude Code 의 `/usage` 가 쓰는 `GET https://api.anthropic.com/api/oauth/usage` 를 **120초마다** 조회합니다.
-  비공개 엔드포인트라 Anthropic 이 바꾸면 깨질 수 있습니다. 토큰은 매번 `.credentials.json` 에서 읽어 Claude Code 의 토큰 갱신을 그대로 따라갑니다(별도 갱신 로직 없음).
-- Windows 11 은 작업표시줄에 위젯을 꽂는 공식 API 가 없어 **작업표시줄 위에 TOPMOST 창**을 얹습니다. 2초마다 위치·z순서를 재확인하고, 배경색은 작업표시줄 픽셀을 샘플링해 라이트/다크 테마에 맞춥니다. 작업표시줄이 자동 숨김이면 위젯도 같이 숨습니다.
-- 네트워크 호출은 전부 **비동기**입니다. UI 스레드에서 응답을 기다리면 메시지 루프가 멈춰 Windows 가 "응답 없음" 으로 프로세스를 죽입니다(초기 버전이 이 문제로 가끔 사라졌습니다). 지금은 요청을 던져 두고 1초 틱이 완료 여부만 확인합니다.
-- 429 방지: 단일 인스턴스(뮤텍스) · 마지막 응답 캐시 `last.json`(재시작 직후 재호출 안 함) · 실패 시 폴링 간격 2배(최대 10분).
-- 오류는 조용히 삼키지 않고 `error.log` 에 남습니다(20KB 넘으면 자동으로 잘림). 위젯이 사라지거나 이상하면 먼저 이 파일을 보세요.
+- Polls `GET https://api.anthropic.com/api/oauth/usage` — the endpoint Claude Code's own `/usage` uses — **every 120 seconds**.
+  It is an undocumented endpoint, so Anthropic can break it at any time. The token is read from `.credentials.json` on every call, so it follows Claude Code's own token refresh (no refresh logic of its own).
+- Windows 11 has no official API for putting a widget into the taskbar, so this lays a **TOPMOST window over it**. Position and z-order are re-asserted every 2 seconds, and the background color is sampled from taskbar pixels to match the light/dark theme. If the taskbar auto-hides, the widget hides with it.
+- Every network call is **async**. Waiting for a response on the UI thread stalls the message loop and Windows kills the process as "not responding" (early versions vanished this way). Requests are now fired off, and a 1-second tick only checks whether they finished.
+- 429 avoidance: single instance (mutex) · last response cached in `last.json` (no re-fetch right after a restart) · polling interval doubles on failure, up to 10 minutes.
+- Errors are never swallowed silently — they go to `error.log` (truncated past 20KB). If the widget disappears or misbehaves, read that file first.
 
-## 안정성
+## Reliability
 
-위젯이 **화면보호기를 오래 켜 두면 꺼지던** 문제가 있었습니다. 원인은 크래시가 아니라 **멈춤(hang)** 이었습니다 — 잠긴(보안) 데스크톱에서 화면 캡처·GDI 호출이 블록되면 UI 스레드가 막히고, Windows 가 "응답 없음"으로 프로세스를 종료합니다(이벤트 로그 `Application Hang`).
+The widget used to **die after the screensaver had been on for a while**. The cause was not a crash but a **hang** — on a locked (secure) desktop, screen capture and GDI calls block, the UI thread stops, and Windows terminates the process as not responding (event log: `Application Hang`).
 
-3중으로 막습니다:
+Three layers guard against it:
 
-| 층 | 하는 일 |
+| Layer | What it does |
 |---|---|
-| **예방** | 화면보호기·세션 잠금 중에는 화면을 아예 안 건드립니다(캡처·렌더·애니메이션 정지). 잠금 감지는 `OpenInputDesktop` + 화면보호기 상태. |
-| **자가 복구** | 백그라운드 워치독이 UI 스레드 heartbeat 를 감시하다 **25초** 이상 끊기면 `error.log` 에 **멈춘 단계**를 적고 새 인스턴스를 띄운 뒤 자신을 즉시 죽입니다. 관리자 권한 불필요. |
-| **외부 감시자** | 예약 작업(로그온 + 5분마다, 이미 실행 중이면 무시)이 프로세스가 통째로 사라진 경우를 담당합니다. 관리자 권한 **불필요** — 단 로그온 트리거에 `-User` 를 주고 `-RepetitionDuration` 은 생략해야 합니다(아래). |
+| **Prevention** | While the screensaver is running or the session is locked, it does not touch the screen at all (capture, render and animation stop). Lock detection uses `OpenInputDesktop` plus screensaver state. |
+| **Self-recovery** | A background watchdog monitors a UI-thread heartbeat. If it stops for more than **25 seconds**, it writes the **stalled stage** to `error.log`, spawns a new instance and kills itself immediately. No admin rights needed. |
+| **External watcher** | A scheduled task (at logon + every 5 minutes, skipped if already running) covers the case where the process disappears entirely. **No admin rights needed** — as long as the logon trigger has `-User` and `-RepetitionDuration` is omitted (see below). |
 
-그 밖에: 미처리 예외는 삼키고 `error.log` 에 기록해 위젯이 계속 살아 있게 하고, 백그라운드 스레드의 예외가 프로세스를 죽이지 않도록 모두 감쌌습니다.
+Beyond that: unhandled exceptions are caught and logged to `error.log` so the widget stays alive, and every background thread wraps its exceptions so they can't take the process down.
 
-⚠️ **예약 작업 등록이 관리자 권한 때문에 실패한다고 넘겨짚지 마세요** (실측 2026-09-14 — 그렇게 오진했습니다). 일반 사용자로도 등록됩니다. 실패 원인은 거의 이 둘입니다:
+⚠️ **Don't assume a failing scheduled-task registration is an admin-rights problem** (measured 2026-09-14 — that was exactly the wrong diagnosis). It registers fine as a normal user. Failures are almost always one of these two:
 
-- `New-ScheduledTaskTrigger -AtLogOn` 에 **`-User` 를 안 주면** "모든 사용자" 트리거가 돼 `Access is denied`
-- `-RepetitionDuration ([TimeSpan]::MaxValue)` 는 `P99999999DT23H59M59S` 라는 **잘못된 XML** 로 나가 거부 — **생략하면 그게 무기한 반복**
+- `New-ScheduledTaskTrigger -AtLogOn` **without `-User`** becomes an "any user" trigger and gets `Access is denied`
+- `-RepetitionDuration ([TimeSpan]::MaxValue)` serializes to `P99999999DT23H59M59S`, **invalid XML**, and is rejected — **omitting it is what means "repeat indefinitely"**
 
-⚠️ 워치독이 스스로를 끝낼 때 `Environment.Exit` 를 쓰면 안 됩니다. 종료 핸들러·파이널라이저를 돌리다 **멈춘 UI 스레드에 함께 굳어**, 새 인스턴스가 뮤텍스를 못 잡고 물러나 결국 **아무것도 안 남습니다**(실측: 12:11 정지 → 12:38 Windows 가 종료할 때까지 85분간 무단절). `Process.GetCurrentProcess().Kill()` 로 즉시 죽어 뮤텍스를 놓아 줘야 합니다.
+⚠️ The watchdog must not use `Environment.Exit` to end itself. Running exit handlers and finalizers makes it **freeze alongside the stuck UI thread**, so the new instance can't take the mutex, backs off, and **nothing is left running** (measured: stalled at 12:11, no widget for 85 minutes until Windows terminated it at 12:38). `Process.GetCurrentProcess().Kill()` dies immediately and releases the mutex.
 
-⚠️ 우클릭 **종료**는 `stopped.flag` 를 남겨 감시자가 되살리지 않게 합니다. 다시 켜려면 `install.cmd` 를 실행하세요(재부팅해도 다시 뜹니다).
+⚠️ Right-click **종료** (exit) leaves a `stopped.flag` so the watcher doesn't resurrect it. Run `install.cmd` to bring it back (it survives reboots).
 
-## 테마 추가
+## Writing a theme
 
-`themes\NN-이름.ps1` 파일이 아래 해시테이블을 **마지막 표현식으로 반환**하면 메뉴에 자동 등록됩니다(두 자리 숫자 접두 = 메뉴 순서).
+A `themes\NN-name.ps1` file registers itself in the menu if its **last expression returns** this hashtable (the two-digit prefix is the menu order).
 
 ```powershell
 @{
-    Id = 'myTheme'; Name = '내 테마'; Width = 200      # Width 는 int 또는 { param($d) ... }
-    Desc = '한 줄 설명 — 테마 메뉴에서 마우스를 올리면 뜹니다'
+    Id = 'myTheme'; Name = 'My theme'; Width = 200     # Width is an int, or { param($d) ... }
+    Desc = 'One-line description - shown when hovering the entry in the theme menu'
     Draw = {
-        param($g, $d, $w, $h)                          # $g = System.Drawing.Graphics, 캔버스 $w x $h
-        Draw-Text $g $d.L5 11 $true $Col.Label 8 15    # 5h 라벨(예: 2:21/5h)
-        Fill-RoundRect $g $d.C5 40 11 100 9 2          # $d.S5 = 5h 사용률(%), $d.C5 = 그 색
+        param($g, $d, $w, $h)                          # $g = System.Drawing.Graphics, canvas is $w x $h
+        Draw-Text $g $d.L5 11 $true $Col.Label 8 15    # 5h label (e.g. 2:21/5h)
+        Fill-RoundRect $g $d.C5 40 11 100 9 2          # $d.S5 = 5h usage (%), $d.C5 = its color
     }
 }
 ```
 
-`$d`: `S5` `S7`(사용률 %) · `C5` `C7` `CD`(색, CD 는 둘 중 높은 쪽) · `L5` `L7`(남은시간/창 라벨) · `R5` `R7`(리셋 문구).
-헬퍼: `Draw-Text`(세로중심 기준) · `Fill-RoundRect` · `Draw-RoundRect` · `Fill-Circle` · `Fill-Ellipse`(왼쪽위 기준) · `Measure-Text` · `$Col`(Green/Gold/Red/Track/Label/Dim/Light/Road) · `Get-LevelColor`.
+`$d`: `S5` `S7` (usage %) · `C5` `C7` `CD` (colors; `CD` is the higher of the two) · `L5` `L7` (time-left/window labels) · `R5` `R7` (reset text).
+Helpers: `Draw-Text` (vertically centered) · `Fill-RoundRect` · `Draw-RoundRect` · `Fill-Circle` · `Fill-Ellipse` (top-left origin) · `Measure-Text` · `$Col` (Green/Gold/Red/Track/Label/Dim/Light/Road) · `Get-LevelColor`.
 
-**픽셀아트 테마**는 `Use-PixelMode $g` 로 시작하고 셀(2px) 단위 헬퍼를 씁니다 — 캔버스는 24행 × (폭/2)열:
+**Pixel-art themes** start with `Use-PixelMode $g` and use the cell (2px) helpers — the canvas is 24 rows × (width/2) columns:
 
 ```powershell
-Use-PixelMode $g                                  # 안티앨리어싱 off
-Px-Fill $g $Px.Cream 3 5 10 4                     # (x, y, 폭, 높이) 셀 단위
+Use-PixelMode $g                                  # anti-aliasing off
+Px-Fill $g $Px.Cream 3 5 10 4                     # (x, y, w, h) in cells
 Px-Circle $g $Px.White 9 14 3                     # (cx, cy, r)
-Draw-Sprite $g @('.##.', '####', '.##.') 2 2 @{ '#' = $Px.Red }   # 문자열 = 한 행, 글자 → 색, '.' 투명
-Draw-PixelText $g $d.L5 0 18 $Col.Label           # 3x5 픽셀 폰트 (숫자 : / % h d m)
+Draw-Sprite $g @('.##.', '####', '.##.') 2 2 @{ '#' = $Px.Red }   # one string = one row, char -> color, '.' transparent
+Draw-PixelText $g $d.L5 0 18 $Col.Label           # 3x5 pixel font (digits : / % h d m)
 ```
 
-`$Px` 팔레트: Ink White Gray Dark Red Pink Orange Yellow Green Blue Sky Brown Wood Cream Sand Coffee. 분마다 바뀌는 효과는 `(Get-Date).Minute % 2` 로.
+`$Px` palette: Ink White Gray Dark Red Pink Orange Yellow Green Blue Sky Brown Wood Cream Sand Coffee. For per-minute effects use `(Get-Date).Minute % 2`.
 
-**움직이는 테마**는 `Anim = 120`(프레임 간격 ms)을 선언하면 그 주기로 다시 그려지고 `$d.F` 가 프레임 번호로 들어옵니다. 숨겨져 있을 땐 자동으로 멈춥니다.
+**Animated themes** declare `Anim = 120` (frame interval in ms) to be redrawn on that cycle, with `$d.F` as the frame number. Animation stops automatically while hidden.
 
-**호버 부스트** — 마우스를 위젯에 올렸을 때만 선언한 간격으로 돌고, 평소엔 `$AnimIdleX`배(기본 4배) 느리게 갑니다. 보는 순간엔 부드럽고 평소엔 CPU 를 덜 씁니다. 값은 `usage-tray.ps1` 위쪽에서 조절하세요.
+**Hover boost** — a theme runs at its declared interval only while the mouse is over the widget, and `$AnimIdleX` times slower otherwise (4x by default). Smooth when you look at it, cheap when you don't. The values live near the top of `usage-tray.ps1`.
 
-⚠️ 애니메이션 비용은 생각보다 큽니다. 실측:
+⚠️ Animation costs more than you'd guess. Measured:
 
-| | CPU (한 코어 기준) |
+| | CPU (one core) |
 |---|---|
-| 매 프레임 벡터 재작도 (8fps) | 8% — `Fill-RoundRect` 가 호출마다 GraphicsPath 를 만든다 |
-| 정적 배경·차량 4컷을 미리 구워 붙이기 | 3% (1.2ms/frame) |
-| + 호버 부스트 (유휴 480ms) | **1.3%** — 정적 테마(약 1%)와 거의 같음 |
+| Redrawing vectors every frame (8fps) | 8% — `Fill-RoundRect` builds a GraphicsPath on every call |
+| Pre-baking the static background and 4 car frames, then blitting | 3% (1.2ms/frame) |
+| + hover boost (480ms when idle) | **1.3%** — about the same as a static theme (~1%) |
 
-비싼 건 `DrawImage`(0.04ms)가 아니라 벡터 재작도이고, 남은 비용은 창 재합성입니다. 프레임 간격만 줄여도 별로 안 떨어집니다(고정 비용이 지배적).
+The expensive part is the vector redraw, not `DrawImage` (0.04ms); what's left is window recomposition. Shortening the frame interval alone barely moves it — the fixed cost dominates.
 
-**절대값은 PC 부하에 따라 통째로 움직이니 비교는 반드시 같은 자리에서** 하세요. 같은 세션에서 잰 예: 정적 테마 1.6% · 자동차 4.9% · 팬더 4.0%. 팬더도 자동차와 같은 수법(완성본 4컷을 미리 구워 프레임마다 붙이기)을 씁니다 — 안 굽고 매 프레임 벡터로 그리면 같은 조건에서 훨씬 비쌉니다.
+**Absolute numbers shift with overall machine load, so only compare measurements taken in the same sitting.** From one session: static theme 1.6% · cars 4.9% · panda 4.0%. Panda uses the same trick as cars (bake 4 finished frames, blit one per frame) — drawing it as vectors every frame is far more expensive under the same conditions.
 
-확인은 API 호출 없이:
+Check your theme without hitting the API:
 
 ```
 powershell -ExecutionPolicy Bypass -File usage-tray.ps1 -RenderTest out.png
 ```
 
-모든 테마를 두 가지 표본 데이터로 1x·2x 렌더한 PNG 한 장이 나옵니다.
+You get a single PNG with every theme rendered at 1x and 2x against two sets of sample data.
 
-## 알려진 한계
+## Known limitations
 
-- 전체화면 앱(게임·영상) 위에도 표시됨
-- 세로(좌/우) 작업표시줄에서는 가로 레이아웃이 맞지 않아 위젯을 숨김
-- 배율 100% 외에선 미검증
+- The widget's UI text is Korean only (see the note at the top)
+- It draws over fullscreen apps (games, video)
+- On a vertical (left/right) taskbar the horizontal layout doesn't fit, so the widget hides itself
+- Untested at scaling other than 100%
 
-## 파일
+## Files
 
-| 파일 | 역할 |
+| File | Role |
 |---|---|
-| `usage-tray.ps1` | 본체 |
-| `themes\*.ps1` | 테마 플러그인 |
-| `setup.ps1` · `install.cmd` · `uninstall.cmd` | 설치/제거 |
-| `config.json` · `last.json` · `version.txt` | 개인 설정·캐시·설치본 버전 (자동 생성, 공유 불필요) |
-| `design\` | 테마 목업 생성기(선택) |
+| `usage-tray.ps1` | The widget |
+| `themes\*.ps1` | Theme plugins |
+| `setup.ps1` · `install.cmd` · `uninstall.cmd` | Install / uninstall |
+| `config.json` · `last.json` · `version.txt` | Local settings, cache, installed version (auto-generated, not shared) |
+| `design\` | Theme mockup generator (optional) |
 
-## 라이선스
+## License
 
 [MIT](LICENSE)
