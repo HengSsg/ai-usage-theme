@@ -7,14 +7,17 @@ $Lnk      = Join-Path ([Environment]::GetFolderPath('Startup')) 'Claude Code Usa
 $Cred     = Join-Path $env:USERPROFILE '.claude\.credentials.json'
 $StopFlag = Join-Path $PSScriptRoot 'stopped.flag'
 $TaskName = 'Claude Code Usage Widget'
+# ⚠️ powershell -WindowStyle Hidden 은 콘솔(Win11 은 터미널) 창이 먼저 떴다가 숨는다 — 감시자가 5분마다 띄우면
+# 그때마다 깜빡인다(실측 2026-10-12). conhost --headless 로 띄우면 창이 아예 안 생긴다.
+$Conhost    = "$env:WINDIR\System32\conhost.exe"
+$LaunchArgs = "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$Widget`""
 
 # 감시자 — 로그온 시 + 5분마다 실행. 이미 돌고 있으면 MultipleInstances=IgnoreNew 로 새로 안 띄우므로
 # 평소엔 아무 일도 안 하고, 위젯이 어떤 이유로든 죽으면 5분 안에 되살아난다.
 # (시작프로그램 바로가기만으로는 죽은 뒤 다음 로그온까지 안 돌아온다.)
 function Register-Watchdog {
     try {
-        $act = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" `
-                   -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Widget`"" -WorkingDirectory $PSScriptRoot
+        $act = New-ScheduledTaskAction -Execute $Conhost -Argument $LaunchArgs -WorkingDirectory $PSScriptRoot
         # ⚠️ 관리자 없이 등록하려면 두 가지를 지켜야 한다 (실측 2026-09-14 — 둘 중 하나만 틀려도 등록 전체가 실패):
         #   ① -AtLogOn 에 -User 를 반드시 준다. 없으면 "모든 사용자" 로그온 트리거가 돼 Access is denied.
         #   ② -RepetitionDuration 은 주지 않는다. [TimeSpan]::MaxValue 는 P99999999DT23H59M59S 라는
@@ -53,8 +56,8 @@ if (-not (Test-Path $Cred)) {
 
 $w = New-Object -ComObject WScript.Shell
 $s = $w.CreateShortcut($Lnk)
-$s.TargetPath       = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
-$s.Arguments        = "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Widget`""
+$s.TargetPath       = $Conhost
+$s.Arguments        = $LaunchArgs
 $s.WorkingDirectory = $PSScriptRoot
 $s.WindowStyle      = 7
 $s.Description      = 'Claude Code 사용량 작업표시줄 위젯'
@@ -73,7 +76,7 @@ Remove-Item $StopFlag -Force -ErrorAction SilentlyContinue     # 이전에 "종�
 $wd = Register-Watchdog
 
 Stop-Widget; Start-Sleep -Milliseconds 500
-Start-Process powershell -ArgumentList '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', $Widget
+Start-Process $Conhost -ArgumentList $LaunchArgs
 Write-Host "설치 완료 — 작업표시줄에 위젯이 뜹니다(로그인 시 자동 시작). 우클릭 → 테마 / 위치 / 종료."
 if (-not $wd) {
     Write-Host "감시자(예약 작업) 등록됨 — 프로세스가 통째로 사라져도 5분 안에 다시 뜹니다."

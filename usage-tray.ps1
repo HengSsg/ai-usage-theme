@@ -149,6 +149,9 @@ $AnimIdleX  = 4     # 마우스가 위젯 위에 없을 때 애니메이션을 �
 $RepoUrl    = 'https://github.com/HengSsg/ai-usage-theme'   # 업데이트 원본
 $VersionFile = Join-Path $PSScriptRoot 'version.txt'        # zip 설치본의 현재 커밋 sha (git clone 이면 .git 이 정본)
 $UpdateCheckHours = 24
+# 재기동(업데이트·워치독)도 창 없이 — setup.ps1 의 $LaunchArgs 와 같은 이유
+$Conhost    = Join-Path $env:WINDIR 'System32\conhost.exe'
+$LaunchArgs = '--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $PSCommandPath
 $MarginX    = 12    # 작업표시줄 왼쪽 여백
 $H          = 48    # 작업표시줄 높이(실측으로 덮어씀)
 
@@ -566,7 +569,7 @@ function Invoke-Update {
 function Restart-Self {
     # 새 인스턴스가 뮤텍스를 잡을 수 있게 먼저 놓는다
     try { $mutex.ReleaseMutex(); $mutex.Dispose() } catch {}
-    Start-Process powershell -ArgumentList '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath
+    Start-Process $Conhost -ArgumentList $LaunchArgs
     $form.Close()
 }
 function Show-Msg([string]$text, [string]$title = 'Claude Code 사용량 위젯', $buttons = 'OK', $icon = 'Information') {
@@ -873,8 +876,7 @@ $form.Add_Shown({
         [TopGuard]::Start($form.Handle)      # 포그라운드 전환 시 즉시 최상단 복귀
         $tick.Start()
         # UI 스레드가 25초(틱 12회분) 넘게 멈추면 새 인스턴스를 띄우고 이 프로세스를 끝낸다
-        [Watchdog]::Start((Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'),
-                          ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}"' -f $PSCommandPath), $ErrorLog, 25000)
+        [Watchdog]::Start($Conhost, $LaunchArgs, $ErrorLog, 25000)
     } catch { Write-ErrLog 'shown' $_ }
 }.GetNewClosure())
 [Windows.Forms.Application]::Run($form)
