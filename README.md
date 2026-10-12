@@ -118,6 +118,8 @@ When a theme is added or a fix lands, the widget tells you and can update itself
 - The method is picked from how you installed: `git pull --ff-only` for a `git clone`, or re-downloading GitHub's `main.zip` for a ZIP install (whose current version is tracked in `version.txt`).
 - Manually: `git pull`, then `install.cmd` (which includes the restart).
 
+> ⚠️ **Installed before 2026-10-12? Run `install.cmd` once more after updating.** That version fixes a PowerShell window flashing every 5 minutes, but the in-widget update only replaces the scripts — the already-registered watchdog task and startup shortcut keep the old launch command until you re-register them.
+
 ## How it works
 
 - Polls `GET https://api.anthropic.com/api/oauth/usage` — the endpoint Claude Code's own `/usage` uses — **every 120 seconds**.

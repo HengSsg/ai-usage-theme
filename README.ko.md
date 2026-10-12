@@ -117,6 +117,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\tools\cc-usag
 - 방식은 설치 형태에 따라 자동 선택: `git clone` 이면 `git pull --ff-only`, ZIP 설치면 GitHub `main.zip` 을 다시 받아 덮어쓰기(현재 버전은 `version.txt` 로 추적).
 - 수동으로 하려면 `git pull` 후 `install.cmd`(재시작 포함).
 
+> ⚠️ **2026-10-12 이전에 설치했다면 업데이트 후 `install.cmd` 를 한 번 다시 실행하세요.** PowerShell 창이 5분마다 깜빡이던 문제를 고친 버전인데, 위젯 업데이트는 스크립트만 바꾸고 이미 등록된 감시자(예약 작업)·시작프로그램 바로가기는 그대로 두기 때문에 다시 등록해야 깜빡임이 사라집니다.
+
 ## 동작 원리
 
 - Claude Code 의 `/usage` 가 쓰는 `GET https://api.anthropic.com/api/oauth/usage` 를 **120초마다** 조회합니다.
